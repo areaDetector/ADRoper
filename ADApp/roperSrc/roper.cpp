@@ -31,6 +31,7 @@
 #include "ADDriver.h"
 
 #include "drvRoper.h"
+#include "comUtility.h"
 
 
 static const char *driverName = "drvRoper";
@@ -53,6 +54,8 @@ public:
     /* Our data */
     epicsEventId startEventId;
     epicsEventId stopEventId;
+    IDispatch *pWinX32App;
+    IDispatch *pExpSetup;
 };
 
 /* If we have any private driver parameters they begin with ADFirstDriverParam and should end
@@ -375,6 +378,45 @@ roper::roper(const char *portName, const char *WinX32Name,
     int status = asynSuccess;
     const char *functionName = "roper";
     int dims[2];
+    HRESULT hRet;
+    CLSID clsId;
+    const char * pParams[] = {""}; 
+    VARIANT varOutput; 
+    
+    /* Translate the class ID for COM */
+    hRet = ::CLSIDFromProgID(L"WinX32.Winx32App.2", &clsId);
+    if (hRet != S_OK) {
+        printf("%s:%s Error getting CLDIS from name for WinX32App\n",
+            driverName, functionName);
+        return;
+    }
+    /* Create ActiveX control */ 
+    if (!CreateComDispatch(clsId, &this->pWinX32App)) {
+        printf("%s:%s error creating ActiveX interface for WinX32App\n",
+            driverName, functionName);
+        return;
+    }
+    hRet = ::CLSIDFromProgID(L"WinX32.ExpSetup.2", &clsId);
+    if (hRet != S_OK) {
+        printf("%s:%s Error getting CLDIS from name for ExpSetup\n",
+            driverName, functionName);
+        return;
+    }
+    /* Create ActiveX control */ 
+    if (!CreateComDispatch(clsId, &this->pExpSetup)) {
+        printf("%s:%s error creating ActiveX interface for ExpSetup\n",
+            driverName, functionName);
+        return;
+    }
+
+    if (!CallStringMethodByName(this->pWinX32App, "Version", 0, pParams,
+                                    &varOutput)) {
+        printf("%s:%s error calling ActiveX interface to get WinX32App version\n",
+            driverName, functionName);
+        return;
+    } 
+    printf("%s:%s WinX32App version = %S\n", 
+        driverName, functionName, varOutput.pbstrVal);
 
     /* Create the epicsEvents for signaling to the simulate task when acquisition starts and stops */
     this->startEventId = epicsEventCreate(epicsEventEmpty);
