@@ -9,6 +9,7 @@ include $(TOP)/configure/CONFIG
 
 LIBRARY_IOC_WIN32 = roper
 LIBRARY_IOC_cygwin32 = roper
+LIB_SRCS += comUtility.cpp
 LIB_SRCS += roper.cpp
 LIB_SRCS += drvRoperEpics.c
 LIB_LIBS += ADBase ADPlugin netCDF
@@ -32,6 +33,7 @@ roperApp_LIBS += calc sscan autosave
 roperApp_LIBS += asyn
 roperApp_LIBS += $(EPICS_BASE_IOC_LIBS)
 
+roperApp_SYS_LIBS += ole32 oleaut32
 roperApp_SYS_LIBS_cygwin32 += rpc
 
 #=============================
