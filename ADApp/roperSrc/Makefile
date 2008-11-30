@@ -9,7 +9,7 @@ include $(TOP)/configure/CONFIG
 
 LIBRARY_IOC_WIN32 = roper
 LIBRARY_IOC_cygwin32 = roper
-LIB_SRCS += comUtility.cpp
+LIB_SRCS += XYDispDriver.cpp
 LIB_SRCS += roper.cpp
 LIB_SRCS += drvRoperEpics.c
 LIB_LIBS += ADBase ADPlugin netCDF
