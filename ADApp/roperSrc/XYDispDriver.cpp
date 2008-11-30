@@ -1,14 +1,15 @@
 #include "XYDispDriver.h"
 
-void CharToWChar(unsigned short* pTarget, const char* pSource)
+void CharToWChar(WCHAR* pTarget, const char* pSource)
 {
+        unsigned short* pTemp = (unsigned short*) pTarget;
 	while(*pSource)
 	{
-		*pTarget = *pSource;
+		*pTemp = *pSource;
 		pSource++;
-		pTarget++;
+		pTemp++;
 	}
-	*pTarget = 0;
+	*pTemp = 0;
 }
 
 XYDispInfo::XYDispInfo()
@@ -386,7 +387,7 @@ bool XYDispDriver::LoadTypeInfo()
 		pTypeInfo->ReleaseFuncDesc(pFuncDesc);
 	}
 
-	for(i=m_nMethodCount;i<m_nMethodCount+m_nVarCount;i++)
+	for(int i=m_nMethodCount;i<m_nMethodCount+m_nVarCount;i++)
 	{
 		VARDESC* pVarDesc;
 		m_hRet = pTypeInfo->GetVarDesc(i-m_nMethodCount, &pVarDesc); 
@@ -971,7 +972,7 @@ void XYDispDriver::Unadvise()
 	}
 }
 
-HRESULT XYDispDriver::InvokeVariantMethod(IDispatch* pDisp, LPCTSTR strMethodName, WORD wInvokeFlag, VARIANT* pVarRet, EXCEPINFO* pExcepInfo, const nParamCount, ...)
+HRESULT XYDispDriver::InvokeVariantMethod(IDispatch* pDisp, LPCTSTR strMethodName, WORD wInvokeFlag, VARIANT* pVarRet, EXCEPINFO* pExcepInfo, const int nParamCount, ...)
 {
 	if(pDisp==NULL||strMethodName==NULL||nParamCount<0)
 	{
@@ -1010,7 +1011,7 @@ HRESULT XYDispDriver::InvokeVariantMethod(IDispatch* pDisp, LPCTSTR strMethodNam
 
 
 
-HRESULT XYDispDriver::InvokeVariantMethod(IDispatch* pDisp, const DISPID dispidMethod, WORD wInvokeFlag, VARIANT* pVarRet, EXCEPINFO* pExcepInfo, const nParamCount, ...)
+HRESULT XYDispDriver::InvokeVariantMethod(IDispatch* pDisp, const DISPID dispidMethod, WORD wInvokeFlag, VARIANT* pVarRet, EXCEPINFO* pExcepInfo, const int nParamCount, ...)
 {
 	if(pDisp==NULL||nParamCount<0)
 	{
@@ -1026,7 +1027,7 @@ HRESULT XYDispDriver::InvokeVariantMethod(IDispatch* pDisp, const DISPID dispidM
 	return hRet;
 }
 
-HRESULT XYDispDriver::InvokeVariantMethodV(IDispatch* pDisp, const DISPID dispidMethod, WORD wInvokeFlag, VARIANT* pVarRet, EXCEPINFO* pExcepInfo, const nParamCount, va_list argList)
+HRESULT XYDispDriver::InvokeVariantMethodV(IDispatch* pDisp, const DISPID dispidMethod, WORD wInvokeFlag, VARIANT* pVarRet, EXCEPINFO* pExcepInfo, const int nParamCount, va_list argList)
 {
 	DISPPARAMS dispparams;
 	memset(&dispparams, 0, sizeof dispparams);
