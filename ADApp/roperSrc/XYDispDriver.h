@@ -6,7 +6,7 @@
 // uncomment the following line if you are importing the XYDispDriver class
 // #define XYDISPDRIVER_USEDLL
 // uncomment the following line if you want to output debug messages
-// #define XYDISPDRIVER_DEBUG
+#define XYDISPDRIVER_DEBUG
 
 #ifdef XYDISPDRIVER_BUILDDLL
 	#define XYDISPDRIVER_EXPORT __declspec(dllexport)
@@ -67,7 +67,7 @@ class XYDispInfo
 class XYDISPDRIVER_EXPORT CoInit
 {
 public:
-	CoInit() { CoInitialize(NULL); }
+	CoInit() { CoInitializeEx(NULL,0); }
 	~CoInit() { CoUninitialize(); }
 };
 
@@ -95,7 +95,7 @@ class XYDISPDRIVER_EXPORT XYDispDriver
 	int m_nMethodCount;
 	int FindDispInfo(LPCTSTR strName, const WORD wFlag = DISPATCH_METHOD);
 	HRESULT InvokeMethodV(const int nIndex, va_list argList);
-	static HRESULT InvokeVariantMethodV(IDispatch* pDisp, const DISPID dispidMethod, WORD wInvokeFlag, VARIANT* pVarRet, EXCEPINFO* pExcepInfo, const nParamCount, va_list argList);
+	static HRESULT InvokeVariantMethodV(IDispatch* pDisp, const DISPID dispidMethod, WORD wInvokeFlag, VARIANT* pVarRet, EXCEPINFO* pExcepInfo, const int nParamCount, va_list argList);
 	bool LoadTypeInfo();
 public:
 	XYDispDriver();
@@ -153,8 +153,8 @@ public:
 	// invoke a method by index
 	VARIANT* InvokeMethod(int nMethodIndex, ...);
 	// invoke a method without type info
-	static HRESULT InvokeVariantMethod(IDispatch* pDisp, LPCTSTR strMethodName, WORD wInvokeFlag, VARIANT* pVarRet, EXCEPINFO* pExcepInfo, const nParamCount, ...);
-	static HRESULT InvokeVariantMethod(IDispatch* pDisp, const DISPID dispidMethod, WORD wInvokeFlag, VARIANT* pVarRet, EXCEPINFO* pExcepInfo, const nParamCount, ...);
+	HRESULT InvokeVariantMethod(IDispatch* pDisp, LPCTSTR strMethodName, WORD wInvokeFlag, VARIANT* pVarRet, EXCEPINFO* pExcepInfo, const int nParamCount, ...);
+	HRESULT InvokeVariantMethod(IDispatch* pDisp, const DISPID dispidMethod, WORD wInvokeFlag, VARIANT* pVarRet, EXCEPINFO* pExcepInfo, const int nParamCount, ...);
 	// add event handler
 	bool Advise(IUnknown *pUnkSink, REFIID riid);
     // remove event handler
