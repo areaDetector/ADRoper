@@ -626,8 +626,9 @@ VARIANT* XYDispDriver::InvokeMethod(LPCTSTR strMethodName, ...)
 		m_hRet = InvokeMethodV(nMethodIndex, argList);
 		va_end(argList);
 		return m_hRet==S_OK?m_pDispInfo[nMethodIndex].m_pOutput:NULL;
-	}
-	return NULL;
+	} 
+	_tprintf(_T("XYDispDriver::InvokeMethod unknown method=%s\n"), strMethodName);
+      	return NULL;
 }
 	
 VARIANT* XYDispDriver::InvokeMethod(int nMethodIndex, ...)
@@ -712,6 +713,9 @@ HRESULT XYDispDriver::InvokeMethodV(int nIndex, va_list argList)
 			case VT_I4:
 				pArg->lVal = va_arg(argList, long);
 				break;
+			case VT_INT:
+				pArg->lVal = va_arg(argList, long);
+				break;
 			case VT_R4:
 				pArg->vt = VT_R4;
 				pArg->fltVal = va_arg(argList, float);
@@ -747,6 +751,9 @@ HRESULT XYDispDriver::InvokeMethodV(int nIndex, va_list argList)
 				break;		
 			case VT_UNKNOWN:
 				pArg->punkVal = va_arg(argList, LPUNKNOWN);
+				break;
+			case VT_USERDEFINED:
+				pArg->iVal = va_arg(argList, int);
 				break;
 			case VT_DISPATCH:
 				pArg->pdispVal = va_arg(argList, LPDISPATCH);
@@ -792,6 +799,9 @@ HRESULT XYDispDriver::InvokeMethodV(int nIndex, va_list argList)
 			case VT_UNKNOWN|VT_BYREF:
 				pArg->ppunkVal = va_arg(argList, LPUNKNOWN*);
 				break;
+			case VT_USERDEFINED|VT_BYREF:
+				pArg->ppdispVal = va_arg(argList, LPDISPATCH*);
+				break;
 			case VT_DISPATCH|VT_BYREF:
 				pArg->ppdispVal = va_arg(argList, LPDISPATCH*);
 				break;
@@ -831,6 +841,9 @@ HRESULT XYDispDriver::InvokeMethodV(int nIndex, va_list argList)
 				pArg->pparray = va_arg(argList, SAFEARRAY **); 
 				break;
 			default:
+        	                #ifdef XYDISPDRIVER_DEBUG
+		                _tprintf(_T("XYDispDriver::InvokeMethodV pArg->vt is unknown=%d\n"), pArg->vt);
+		                #endif
 				break;
 			}
 			--pArg; // get ready to fill next argument
