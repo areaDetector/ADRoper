@@ -31,10 +31,22 @@
 #include "ADDriver.h"
 
 #include "drvRoper.h"
-#include "XYDispDriver.h"
-#include "WinX32_EXP_CMD.h"
-#include "WinX32_DM_CMD.h"
+#include "stdafx.h"
+#include "CWinx32App2.h"
+#include "CExpSetup2.h"
+#include "CDocFile4.h"
+#include "CROIRect.h"
 
+/* The following macro initializes COM for the default COINIT_MULTITHREADED model 
+ * This needs to be done is each thread that can call the COM interfaces 
+ * These threads are:
+ * The thread that runs when the roper object is created (typically from st.cmd)
+ * The roperTask thread that controls acquisition
+ * The port driver thread that sets parameters */
+#define INITIALIZE_COM CoInitializeEx(NULL, 0)
+#define ERROR_MESSAGE_SIZE 256
+/* The polling interval when checking to see if acquisition is complete */
+#define ROPER_POLL_TIME .01
 
 static const char *driverName = "drvRoper";
 
@@ -53,35 +65,80 @@ public:
                                         
     void roperTask();
     asynStatus setROI();
-    asynStatus getData(NDArray *pArray);
-    asynStatus testData();
-
+    NDArray *getData();
+    asynStatus getStatus();
+    asynStatus saveFile();
+    
     /* Our data */
     epicsEventId startEventId;
     epicsEventId stopEventId;
-    XYDispDriver *pWinX32App;
-    XYDispDriver *pExpSetup;
-    XYDispDriver *pDocFile;
-    XYDispDriver *pROIRect;
+    CWinx32App2 *pWinx32App;
+    CExpSetup2  *pExpSetup;
+    CDocFile4   *pDocFile;
+    CROIRect    *pROIRect;
+    char errorMessage[ERROR_MESSAGE_SIZE];
 };
 
 /* If we have any private driver parameters they begin with ADFirstDriverParam and should end
    with ADLastDriverParam, which is used for setting the size of the parameter library table */
 typedef enum {
-    RoperDummy 
+    RoperTemperature
         = ADFirstDriverParam,
+    RoperComment1,
+    RoperComment2,
+    RoperComment3,
+    RoperComment4,
+    RoperComment5,
     ADLastDriverParam
 } RoperParam_t;
 
 static asynParamString_t RoperParamString[] = {
-    {RoperDummy,          "DUMMY"}
+    {RoperTemperature,    "TEMPERATURE"},
+    {RoperComment1,       "COMMENT1"},
+    {RoperComment2,       "COMMENT2"},
+    {RoperComment3,       "COMMENT3"},
+    {RoperComment4,       "COMMENT4"},
+    {RoperComment5,       "COMMENT5"}
 };
 
 #define NUM_ROPER_PARAMS (sizeof(RoperParamString)/sizeof(RoperParamString[0]))
     
-asynStatus roper::getData(NDArray *pArray) {
+asynStatus roper::saveFile() 
+{
+    char fullFileName[MAX_FILENAME_LEN];
+    OLECHAR wideFullFileName[MAX_FILENAME_LEN];
+    VARIANT varArg;
+    BSTR fName;
+    size_t len;
+    asynStatus status=asynSuccess;
+    const char *functionName="saveFile";
+    
+    VariantInit(&varArg);
 
-    VARIANT *pStatus;
+    this->createFileName(MAX_FILENAME_LEN, fullFileName);
+    mbstowcs_s(&len, wideFullFileName, MAX_FILENAME_LEN, fullFileName, MAX_FILENAME_LEN-1);
+    varArg.vt = VT_BSTR;
+    fName = SysAllocString(wideFullFileName);
+    varArg.bstrVal = fName;
+    try {
+        this->pDocFile->SetParam(DM_FILENAME, &varArg);
+        this->pDocFile->Save();
+    }
+    catch(CException *pEx) {
+        pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
+        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+            "%s:%s: exception = %s\n", 
+            driverName, functionName, this->errorMessage);
+        pEx->Delete();
+        status = asynError;
+    }
+    SysFreeString(fName);
+    return(status);
+}
+
+NDArray *roper::getData() {
+
+    NDArray *pArray = NULL;
     VARIANT varData;
     SAFEARRAY *pData;
     int dim;
@@ -94,143 +151,182 @@ asynStatus roper::getData(NDArray *pArray) {
     void HUGEP *pVarData;
     const char *functionName = "getData";
         
-    new (CoInit);
     VariantInit(&varData);
-    pStatus = this->pDocFile->InvokeMethod("GetFrame", 1, &varData);
-    if (!pStatus) {
-        printf("%s:%s error calling ActiveX interface to GetFrame\n",
-            driverName, functionName);
+    try {
+        this->pDocFile->GetFrame(1, &varData);
+        pData = varData.parray;
+        nDims = SafeArrayGetDim(pData);
+        for (dim=0; dim<nDims; dim++) {
+            SafeArrayGetLBound(pData, dim+1, &lbound);
+            SafeArrayGetUBound(pData, dim+1, &ubound);
+            dims[dim] = ubound - lbound + 1;
+        }
+        SafeArrayGetVartype(pData, &varType);
+        switch (varType) {
+            case VT_I2:
+                dataType = NDInt16;
+                break;
+            case VT_I4:
+                dataType = NDInt32;
+                break;
+            case VT_R4:
+                dataType = NDFloat32;
+                break;
+            case VT_R8:
+                dataType = NDFloat64;
+                break;
+            default:
+                asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+                    "%s:%s: unknown data type = %d\n", 
+                    driverName, functionName, varType);
+                return(NULL);
+        }
+        pArray = this->pNDArrayPool->alloc(nDims, dims, dataType, 0, NULL);
+        pArray->getInfo(&arrayInfo);
+        SafeArrayAccessData(pData, &pVarData);
+        memcpy(pArray->pData, pVarData, arrayInfo.totalBytes);
+        SafeArrayUnaccessData(pData);
+        setIntegerParam(ADImageSize, arrayInfo.totalBytes);
+        setIntegerParam(ADImageSizeX, dims[0]);
+        setIntegerParam(ADImageSizeY, dims[1]);
+        setIntegerParam(ADDataType, dataType);
+    }
+    catch(CException *pEx) {
+        pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
+        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+            "%s:%s: exception = %s\n", 
+            driverName, functionName, this->errorMessage);
+        pEx->Delete();
+        return(NULL);
+    }
+        
+    return(pArray);
+}
+
+asynStatus roper::getStatus()
+{
+    short result;
+    const char *functionName = "getStatus";
+    VARIANT varResult;
+    IDispatch pROIDispatch;
+    double top, bottom, left, right;
+    long minX, minY, sizeX, sizeY, binX, binY;
+    
+    try {
+        varResult = pExpSetup->GetParam(EXP_REVERSE, &result);
+        setIntegerParam(ADReverseX, varResult.lVal);
+        varResult = pExpSetup->GetParam(EXP_FLIP, &result);
+        setIntegerParam(ADReverseY, varResult.lVal);
+        varResult = pExpSetup->GetParam(EXP_XDIMDET, &result);
+        setIntegerParam(ADMaxSizeX, varResult.lVal);
+        varResult = pExpSetup->GetParam(EXP_YDIMDET, &result);
+        setIntegerParam(ADMaxSizeY, varResult.lVal);
+        varResult = pExpSetup->GetParam(EXP_SEQUENTS, &result);
+        setIntegerParam(ADNumImages, varResult.lVal);
+        varResult = pExpSetup->GetParam(EXP_EXPOSURE, &result);
+        setDoubleParam(ADAcquireTime, varResult.dblVal);
+        pROIDispatch = pExpSetup->getROI(1);
+        pROIRect->AttachDispatch(ROIDispatch);
+        pROIRect->Get(&top, &left, &bottom, &right, &binX, &binY);
+        minX = int(left);
+        minY = int(top);
+        sizeX = int(right)-int(left)+1;
+        sizeY = int(bottom)-int(top)+1;
+        setIntegerParam(ADMinX, minX);
+        setIntegerParam(ADMinY, minY);
+        setIntegerParam(ADSizeX, sizeX);
+        setIntegerParam(ADSizeY, sizeX);
+    }
+    catch(CException *pEx) {
+        pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
+        printf("%s:%s: exception = %s\n", 
+            driverName, functionName, this->errorMessage);
+        pEx->Delete();
         return(asynError);
     }
-    pData = varData.parray;
-    nDims = SafeArrayGetDim(pData);
-    for (dim=0; dim<nDims; dim++) {
-        SafeArrayGetLBound(pData, dim+1, &lbound);
-        SafeArrayGetUBound(pData, dim+1, &ubound);
-        dims[dim] = ubound - lbound + 1;
-    }
-    SafeArrayGetVartype(pData, &varType);
-    switch (varType) {
-        case VT_I2:
-            dataType = NDInt16;
-            break;
-        case VT_I4:
-            dataType = NDInt32;
-            break;
-        case VT_R4:
-            dataType = NDFloat32;
-            break;
-        case VT_R8:
-            dataType = NDFloat64;
-            break;
-        default:
-            printf("%d:%s: unknown data type = %d\n", varType);
-            return(asynError);
-    }
-    pArray = this->pNDArrayPool->alloc(nDims, dims, dataType, 0, NULL);
-    pArray->getInfo(&arrayInfo);
-    SafeArrayAccessData(pData, &pVarData);
-    memcpy(pArray->pData, pVarData, arrayInfo.totalBytes);
-    SafeArrayUnaccessData(pData);
     return(asynSuccess);
 }
-    
-asynStatus roper::testData() {
-
-    VARIANT *pStatus;
-    const char *functionName = "testData";
-    NDArray *pArray=NULL;
-    XYDispDriver *pDocWindows = new(XYDispDriver);
-    XYDispDriver *pDocWindow = new(XYDispDriver);
-    IDispatch *pDocWindowDispatch;
-    IDispatch *pDocFileDispatch;
-    
-    if (!pDocWindows->CreateObject("WinX32.DocWindows")) {
-        printf("%s:%s error creating DocWindows COM object\n",
-            driverName, functionName);
-        return(asynError);
-    }
-    if (!pDocWindow->CreateObject("WinX32.DocWindow")) {
-        printf("%s:%s error creating DocWindow COM object\n",
-            driverName, functionName);
-        return(asynError);
-    }
-    pStatus = pDocWindows->InvokeMethod("GetActive");
-    if (!pStatus) {
-        printf("%s:%s error calling ActiveX interface to GetActive\n",
-            driverName, functionName);
-        return(asynError);
-    }
-    pDocWindowDispatch = pStatus->pdispVal;
-    if (!pDocWindow->Attach(pDocWindowDispatch)) {
-        printf("%s:%s error attaching pDocWindowDispatch\n",
-            driverName, functionName);
-        return(asynError);
-    }
-    pStatus = pDocWindow->InvokeMethod("GetDocument");
-    if (!pStatus) {
-        printf("%s:%s error calling ActiveX interface to GetDocument\n",
-            driverName, functionName);
-        return(asynError);
-    }
-    pDocFileDispatch = pStatus->pdispVal;
-    if (!this->pDocFile->Attach(pDocFileDispatch)) {
-        printf("%s:%s error attaching pDocFileDispatch\n",
-            driverName, functionName);
-        return(asynError);
-    }
-    this->getData(pArray);
-    return(asynSuccess);
-}
-    
-
 
 asynStatus roper::setROI() {
-    int minX, minY, sizeX, sizeY, binX, binY;
+    int minX, minY, sizeX, sizeY, binX, binY, maxSizeX, maxSizeY;
     double ROILeft, ROIRight, ROITop, ROIBottom;
     asynStatus status;
-    VARIANT *pStatus, varParam;
+    VARIANT  varArg;
     const char *functionName = "setROI";
-    IDispatch *pROIRect;
 
-     new (CoInit);
-    VariantInit(&varParam);
+    VariantInit(&varArg);
     status = getIntegerParam(ADMinX,  &minX);
     status = getIntegerParam(ADMinY,  &minY);
     status = getIntegerParam(ADSizeX, &sizeX);
     status = getIntegerParam(ADSizeY, &sizeY);
     status = getIntegerParam(ADBinX,  &binX);
     status = getIntegerParam(ADBinY,  &binY);
+    status = getIntegerParam(ADMaxSizeX, &maxSizeX);
+    status = getIntegerParam(ADMaxSizeY, &maxSizeY);
+    if (minX < 1) {
+        minX = 1;
+        setIntegerParam(ADMinX, minX);
+    }
+    /* Make sure parameters are consistent, fix them if they are not */
+    if (binX < 1) {
+        binX = 1; 
+        status = setIntegerParam(ADBinX, binX);
+    }
+    if (binY < 1) {
+        binY = 1;
+        status = setIntegerParam(ADBinY, binY);
+    }
+    if (minX < 1) {
+        minX = 1; 
+        status = setIntegerParam(ADMinX, minX);
+    }
+    if (minY < 1) {
+        minY = 1; 
+        status = setIntegerParam(ADMinY, minY);
+    }
+    /* The size must be a multiple of the binning or the controller can generate an error */
+    if (sizeX < binX) sizeX = binX;    
+    sizeX = (sizeX/binX) * binX;
+    status = setIntegerParam(ADSizeX, sizeX);
+    if (sizeY < binY) sizeY = binY;    
+    sizeY = (sizeY/binY) * binY;
+    status = setIntegerParam(ADSizeY, sizeY);
+    if (minX > maxSizeX-binX) {
+        minX = maxSizeX-binX; 
+        status = setIntegerParam(ADMinX, minX);
+    }
+    if (minY > maxSizeY-binY) {
+        minY = maxSizeY-binY; 
+        status = setIntegerParam(ADMinY, minY);
+    }
+    if (minX+sizeX > maxSizeX) {
+        sizeX = maxSizeX-minX; 
+        status = setIntegerParam(ADSizeX, sizeX);
+    }
+    if (minY+sizeY > maxSizeY) {
+        sizeY = maxSizeY-minY; 
+        status = setIntegerParam(ADSizeY, sizeY);
+    }
+
     ROILeft = minX;
-    ROIRight = minX + sizeX;
+    ROIRight = minX + sizeX - 1;
     ROITop = minY;
-    ROIBottom = minY + sizeY;
+    ROIBottom = minY + sizeY - 1;
     
-    pStatus = this->pROIRect->InvokeMethod("Set", ROITop, ROILeft, ROIBottom, ROIRight, binX, binY);
-    if (!pStatus) {
-        printf("%s:%s error calling ActiveX interface to set ROIRect\n",
-            driverName, functionName);
-        return(asynError);
+    try {
+        this->pROIRect->Set(ROITop, ROILeft, ROIBottom, ROIRight, binX, binY);
+        this->pExpSetup->ClearROIs();
+        this->pExpSetup->SetROI(this->pROIRect->m_lpDispatch);
+        varArg.vt = VT_I4;
+        varArg.lVal = 1;
+        this->pExpSetup->SetParam(EXP_USEROI, &varArg);
     }
-    pStatus = this->pExpSetup->InvokeMethod("ClearROIs");
-    if (!pStatus) {
-        printf("%s:%s error calling ActiveX interface to clear ROIs\n",
-            driverName, functionName);
-        return(asynError);
-    }
-    varParam.vt = VT_I4;
-    varParam.lVal = 1;
-    pStatus = this->pExpSetup->InvokeMethod("SetParam", EXP_USEROI, &varParam);
-    if (!pStatus) {
-        printf("%s:%s error calling ActiveX interface to set EXP_USEROI\n",
-            driverName, functionName);
-        //return(asynError);
-    }
-    pROIRect = this->pROIRect->GetDispatch();
-    pStatus = this->pExpSetup->InvokeMethod("SetROI", pROIRect);
-    if (!pStatus) {
-        printf("%s:%s error calling ActiveX interface to set ROI 1\n",
-            driverName, functionName);
+    catch(CException *pEx) {
+        pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
+        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+            "%s:%s: exception = %s\n", 
+            driverName, functionName, this->errorMessage);
+        pEx->Delete();
         return(asynError);
     }
     return(asynSuccess);
@@ -262,8 +358,6 @@ void roper::roperTask()
 {
     /* This thread computes new image data and does the callbacks to send it to higher layers */
     int status = asynSuccess;
-    int dataType;
-    int imageSizeX, imageSizeY, imageSize;
     int imageCounter;
     int numImages, numImagesCounter;
     int imageMode;
@@ -273,8 +367,23 @@ void roper::roperTask()
     double acquireTime, acquirePeriod, delay;
     epicsTimeStamp startTime, endTime;
     double elapsedTime;
-    const char *functionName = "simTask";
-    VARIANT *pStatus, varParam;
+    const char *functionName = "roperTask";
+    VARIANT varArg;
+    IDispatch *pDocFileDispatch;
+    HRESULT hr;
+    short result;
+
+    /* Initialize the COM system for this thread */
+    hr = INITIALIZE_COM;
+    if (hr == S_FALSE) {
+        /* COM was already initialized for this thread */
+        CoUninitialize();
+    } else if (hr != S_OK) {
+        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+            "%s:%s: error initializing COM\n",
+            driverName, functionName);
+    }
+    VariantInit(&varArg);
 
     epicsMutexLock(this->mutexId);
     /* Loop forever */
@@ -292,6 +401,7 @@ void roper::roperTask()
             epicsMutexUnlock(this->mutexId);
             status = epicsEventWait(this->startEventId);
             epicsMutexLock(this->mutexId);
+            getIntegerParam(ADAcquire, &acquire);
             setIntegerParam(ADNumImagesCounter, 0);
         }
         
@@ -311,53 +421,72 @@ void roper::roperTask()
         /* Call the callbacks to update any changes */
         callParamCallbacks();
 
-        /* Collect the frame(s) */
-        /* Stop current exposure, if any */
-        pStatus = this->pExpSetup->InvokeMethod("Stop");
-        pStatus = this->pDocFile->InvokeMethod("Close");
-        pStatus = this->pExpSetup->InvokeMethod("Start2");
-        /* The status returned should contain a pointer to the DocFile object */
-       
+        try {
+            /* Collect the frame(s) */
+            /* Stop current exposure, if any */
+            this->pExpSetup->Stop();
+            this->pDocFile->Close();
+            pDocFileDispatch = pExpSetup->Start2(&varArg);
+            pDocFile->AttachDispatch(pDocFileDispatch);
+
+            /* Wait for acquisition to complete, but allow acquire stop events to be handled */
+            while (acquire) {
+                status = epicsEventWaitWithTimeout(this->stopEventId, ROPER_POLL_TIME);
+                if (status == epicsEventWaitOK) {
+                    /* We got a stop event, abort acquisition */
+                    this->pExpSetup->Stop();
+                }
+                varArg = pExpSetup->GetParam(EXP_RUNNING, &result);
+                acquire = varArg.lVal;
+            }
+        }
+        catch(CException *pEx) {
+            pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
+            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+                "%s:%s: exception = %s\n", 
+                driverName, functionName, this->errorMessage);
+            pEx->Delete();
+        }
+        
         /* Close the shutter */
         setShutter(ADShutterClosed);
-        setIntegerParam(ADStatus, ADStatusReadout);
-        /* Call the callbacks to update any changes */
+       /* Call the callbacks to update any changes */
         callParamCallbacks();
         
-        pImage = this->pArrays[0];
-        
         /* Get the current parameters */
-        getIntegerParam(ADImageSizeX, &imageSizeX);
-        getIntegerParam(ADImageSizeY, &imageSizeY);
-        getIntegerParam(ADImageSize,  &imageSize);
-        getIntegerParam(ADDataType,   &dataType);
-        getIntegerParam(ADAutoSave,   &autoSave);
-        getIntegerParam(ADImageCounter, &imageCounter);
-        getIntegerParam(ADNumImages, &numImages);
+        getIntegerParam(ADAutoSave,         &autoSave);
+        getIntegerParam(ADImageCounter,     &imageCounter);
+        getIntegerParam(ADNumImages,        &numImages);
         getIntegerParam(ADNumImagesCounter, &numImagesCounter);
-        getIntegerParam(ADImageMode, &imageMode);
-        getIntegerParam(ADArrayCallbacks, &arrayCallbacks);
+        getIntegerParam(ADImageMode,        &imageMode);
+        getIntegerParam(ADArrayCallbacks,   &arrayCallbacks);
         imageCounter++;
         numImagesCounter++;
         setIntegerParam(ADImageCounter, imageCounter);
         setIntegerParam(ADNumImagesCounter, numImagesCounter);
         
-        /* Put the frame number and time stamp into the buffer */
-        pImage->uniqueId = imageCounter;
-        pImage->timeStamp = startTime.secPastEpoch + startTime.nsec / 1.e9;
 
         if (arrayCallbacks) {
             /* Get the data from the DocFile */
-                    
-            /* Call the NDArray callback */
-            /* Must release the lock here, or we can get into a deadlock, because we can
-             * block on the plugin lock, and the plugin can be calling us */
-            epicsMutexUnlock(this->mutexId);
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, 
-                 "%s:%s: calling imageData callback\n", driverName, functionName);
-            doCallbacksGenericPointer(pImage, NDArrayData, 0);
-            epicsMutexLock(this->mutexId);
+            pImage = this->getData();
+            if (pImage)  {
+                /* Put the frame number and time stamp into the buffer */
+                pImage->uniqueId = imageCounter;
+                pImage->timeStamp = startTime.secPastEpoch + startTime.nsec / 1.e9;
+                /* Call the NDArray callback */
+                /* Must release the lock here, or we can get into a deadlock, because we can
+                 * block on the plugin lock, and the plugin can be calling us */
+                epicsMutexUnlock(this->mutexId);
+                asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, 
+                     "%s:%s: calling imageData callback\n", driverName, functionName);
+                doCallbacksGenericPointer(pImage, NDArrayData, 0);
+                epicsMutexLock(this->mutexId);
+                pImage->release();
+            }
         }
+        
+        /* See if we should save the file */
+        if (autoSave) this->saveFile();
 
         /* See if acquisition is done */
         if ((imageMode == ADImageSingle) ||
@@ -381,7 +510,7 @@ void roper::roperTask()
                      "%s:%s: delay=%f\n",
                       driverName, functionName, delay);            
             if (delay >= 0.0) {
-                /* We set the status to readOut to indicate we are in the period delay */
+                /* We set the status to indicate we are in the period delay */
                 setIntegerParam(ADStatus, ADStatusWaiting);
                 callParamCallbacks();
                 epicsMutexUnlock(this->mutexId);
@@ -396,81 +525,86 @@ void roper::roperTask()
 asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
 {
     int function = pasynUser->reason;
-    int adstatus;
+    int currentlyAcquiring;
     asynStatus status = asynSuccess;
-    VARIANT varParam;
-    VARIANT *pStatus;
+    VARIANT varArg;
     const char* functionName="writeInt32";
 
-    VariantInit(&varParam);
+    VariantInit(&varArg);
+    
+    /* See if we are currently acquiring.  This must be done before the call to setIntegerParam below */
+    getIntegerParam(ADAcquire, &currentlyAcquiring);
     
     /* Set the parameter and readback in the parameter library.  This may be overwritten when we read back the
      * status at the end, but that's OK */
     status = setIntegerParam(function, value);
 
-    /* For a real detector this is where the parameter is sent to the hardware */
-    switch (function) {
-    case ADAcquire:
-        getIntegerParam(ADStatus, &adstatus);
-        if (value) {
-            /* Send an event to wake up the simulation task.  
-             * It won't actually start generating new images until we release the lock below */
-            pStatus = this->pExpSetup->InvokeMethod("Start2", &varParam);
-            if (!pStatus) {
-                printf("%s:%s error calling ActiveX interface to Start2\n",
-                    driverName, functionName);
-            status = asynError;
+    try {
+        switch (function) {
+        case ADAcquire:
+            if (value && !currentlyAcquiring) {
+                /* Send an event to wake up the Roper task.  
+                 * It won't actually start generating new images until we release the lock below */
+                epicsEventSignal(this->startEventId);
+            } 
+            if (!value && currentlyAcquiring) {
+                /* This was a command to stop acquisition */
+                /* Send the stop event */
+                epicsEventSignal(this->stopEventId);
             }
-            //epicsEventSignal(this->startEventId);
-        } 
-        if (!value) {
-            /* This was a command to stop acquisition */
-            /* Send the stop event */
-            pStatus = this->pExpSetup->InvokeMethod("Stop");
-            if (!pStatus) {
-                printf("%s:%s error calling ActiveX interface to Stop\n",
-                    driverName, functionName);
-            status = asynError;
-            }
-            //epicsEventSignal(this->stopEventId);
+            break;
+        case ADBinX:
+        case ADBinY:
+        case ADMinX:
+        case ADMinY:
+        case ADSizeX:
+        case ADSizeY:
+            this->setROI();
+            break;
+        case ADDataType:
+            break;
+        case ADNumImages:
+            varArg.vt = VT_I2;
+            varArg.iVal = value;
+            this->pExpSetup->SetParam(EXP_SEQUENTS, &varArg);
+            break;
+        case ADReverseX:
+            varArg.vt = VT_I2;
+            varArg.iVal = value;
+            this->pExpSetup->SetParam(EXP_REVERSE, &varArg);
+            break;
+        case ADReverseY:
+            varArg.vt = VT_I2;
+            varArg.iVal = value;
+            this->pExpSetup->SetParam(EXP_FLIP, &varArg);
+            break;
+        case ADShutterControl:
+            setShutter(value);
+            break;
         }
-        break;
-    case ADBinX:
-    case ADBinY:
-    case ADMinX:
-    case ADMinY:
-    case ADSizeX:
-    case ADSizeY:
-        this->setROI();
-        break;
-    case ADDataType:
-        break;
-    case ADNumImages:
-        varParam.vt = VT_I2;
-        varParam.iVal = value;
-        pStatus = this->pExpSetup->InvokeMethod("SetParam", EXP_SEQUENTS, &varParam);
-        if (!pStatus) {
-            printf("%s:%s error calling ActiveX interface to set EXP_SEQUENTS\n",
-                driverName, functionName);
-            status = asynError;
-        }
-        break;
-    case ADShutterControl:
-        setShutter(value);
-        break;
     }
+    catch(CException *pEx) {
+        pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
+        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+            "%s:%s: exception = %s\n", 
+            driverName, functionName, this->errorMessage);
+        pEx->Delete();
+    }
+    
+    /* Read the actual state of the detector after this operation */
+    this->getStatus();
     
     /* Do callbacks so higher layers see any changes */
     callParamCallbacks();
     
     if (status) 
         asynPrint(pasynUser, ASYN_TRACE_ERROR, 
-              "%s:writeInt32 error, status=%d function=%d, value=%d\n", 
-              driverName, status, function, value);
+              "%s:%s: error, status=%d function=%d, value=%d\n", 
+              driverName, functionName, status, function, value);
     else        
         asynPrint(pasynUser, ASYN_TRACEIO_DRIVER, 
-              "%s:writeInt32: function=%d, value=%d\n", 
-              driverName, function, value);
+              "%s:%s: function=%d, value=%d\n", 
+              driverName, functionName, function, value);
     return status;
 }
 
@@ -479,34 +613,48 @@ asynStatus roper::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
 {
     int function = pasynUser->reason;
     asynStatus status = asynSuccess;
-    VARIANT varParam;
-    VARIANT *pStatus;
+    VARIANT varArg;
+    const char* functionName="writeInt32";
+
+    VariantInit(&varArg);
 
     /* Set the parameter and readback in the parameter library.  This may be overwritten when we read back the
      * status at the end, but that's OK */
     status = setDoubleParam(function, value);
 
     /* Changing any of the following parameters requires recomputing the base image */
-    switch (function) {
-    case ADAcquireTime:
-        varParam.vt = VT_R4;
-        varParam.fltVal = (epicsFloat32)value;
-        pStatus = this->pExpSetup->InvokeMethod("SetParam", EXP_EXPOSURE, &varParam);
-        break;
-    case ADGain:
-        break;
+    try {
+        switch (function) {
+        case ADAcquireTime:
+            varArg.vt = VT_R4;
+            varArg.fltVal = (epicsFloat32)value;
+            this->pExpSetup->SetParam(EXP_EXPOSURE, &varArg);
+            break;
+        case ADGain:
+            break;
+        }
     }
+    catch(CException *pEx) {
+        pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
+        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+            "%s:%s: exception = %s\n", 
+            driverName, functionName, this->errorMessage);
+        pEx->Delete();
+    }
+
+    /* Read the actual state of the detector after this operation */
+    this->getStatus();
 
     /* Do callbacks so higher layers see any changes */
     callParamCallbacks();
     if (status) 
         asynPrint(pasynUser, ASYN_TRACE_ERROR, 
-              "%s:writeFloat64 error, status=%d function=%d, value=%f\n", 
-              driverName, status, function, value);
+              "%s:%s, status=%d function=%d, value=%f\n", 
+              driverName, functionName, status, function, value);
     else        
         asynPrint(pasynUser, ASYN_TRACEIO_DRIVER, 
-              "%s:writeFloat64: function=%d, value=%f\n", 
-              driverName, function, value);
+              "%s:%s: function=%d, value=%f\n", 
+              driverName, functionName, function, value);
     return status;
 }
 
@@ -519,6 +667,17 @@ asynStatus roper::drvUserCreate(asynUser *pasynUser,
     asynStatus status;
     int param;
     const char *functionName = "drvUserCreate";
+    HRESULT hr;
+
+    /* Initialize the COM system for this thread */
+    hr = INITIALIZE_COM;
+    if (hr == S_FALSE) {
+        /* COM was already initialized for this thread */
+        CoUninitialize();
+    } else if (hr != S_OK) {
+        printf("%s:%s: error initializing COM\n",
+            driverName, functionName);
+    }
 
     /* See if this is one of our standard parameters */
     status = findParam(RoperParamString, NUM_ROPER_PARAMS, 
@@ -574,19 +733,65 @@ roper::roper(const char *portName, const char *WinX32Name,
 {
     int status = asynSuccess;
     const char *functionName = "roper";
-    VARIANT *pVarOutput, varArg;
+    VARIANT varResult;
+    HRESULT hr;
     short result;
  
-    /* Create the epicsEvents for signaling to the acquisition task when acquisition starts and stops */
+    /* Initialize the COM system for this thread */
+    hr = INITIALIZE_COM;
+    if (hr != S_OK) {
+        printf("%s:%s: error initializing COM\n",
+            driverName, functionName);
+    }
+
+    /* Create the COleDispatchDriver objects used to communicate with COM */
+    VariantInit(&varResult);
+    this->pWinx32App = new(CWinx32App2);
+    this->pExpSetup  = new(CExpSetup2);
+    this->pDocFile   = new(CDocFile4);
+    this->pROIRect   = new(CROIRect);
+
+    /* Connect to the WinX32App and ExpSetup COM objects */
+    if (!pWinx32App->CreateDispatch("WinX32.Winx32App.2")) {
+        printf("%s:%s: error creating WinX32App COM object\n",
+            driverName, functionName);
+        return;
+    }
+    if (!pExpSetup->CreateDispatch("WinX32.ExpSetup.2")) {
+        printf("%s:%s: error creating ExpSetup COM object\n",
+            driverName, functionName);
+        return;
+    }
+    if (!pROIRect->CreateDispatch("WinX32.ROIRect")) {
+        printf("%s:%s: error creating ROIRect COM object\n",
+            driverName, functionName);
+        return;
+    }
+
+    try {
+        varResult = this->pExpSetup->GetParam(EXP_CONTROLLER_NAME, &result);
+printf("EXP_CONTROLLER_NAME, vt=%d\n", varResult.vt);
+    }
+    catch(CException *pEx) {
+        pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
+        printf("%s:%s: exception = %s\n", 
+            driverName, functionName, this->errorMessage);
+        pEx->Delete();
+    }
+
+    /* Read the state of the detector */
+    this->getStatus();
+
+   /* Create the epicsEvents for signaling to the acquisition task when acquisition starts and stops */
     this->startEventId = epicsEventCreate(epicsEventEmpty);
     if (!this->startEventId) {
-        printf("%s:%s epicsEventCreate failure for start event\n", 
+        printf("%s:%s: epicsEventCreate failure for start event\n", 
             driverName, functionName);
         return;
     }
     this->stopEventId = epicsEventCreate(epicsEventEmpty);
     if (!this->stopEventId) {
-        printf("%s:%s epicsEventCreate failure for stop event\n", 
+        printf("%s:%s: epicsEventCreate failure for stop event\n", 
             driverName, functionName);
         return;
     }
@@ -610,47 +815,10 @@ roper::roper(const char *portName, const char *WinX32Name,
                                 (EPICSTHREADFUNC)roperTaskC,
                                 this) == NULL);
     if (status) {
-        printf("%s:%s epicsThreadCreate failure for Roper task\n", 
+        printf("%s:%s: epicsThreadCreate failure for Roper task\n", 
             driverName, functionName);
         return;
     }
 
-    /* Create the XYDispDriver objects used to communicate with COM */
-    new(CoInit);
-    VariantInit(&varArg);
-    this->pWinX32App = new(XYDispDriver);
-    this->pExpSetup  = new(XYDispDriver);
-    this->pDocFile   = new(XYDispDriver);
-    this->pROIRect   = new(XYDispDriver);
-    /* Connect to the WinX32App and ExpSetup COM objects */
-    if (!this->pWinX32App->CreateObject("WinX32.Winx32App.2")) {
-        printf("%s:%s error creating WinX32App COM object\n",
-            driverName, functionName);
-        return;
-    }
-    if (!this->pExpSetup->CreateObject("WinX32.ExpSetup.2")) {
-        printf("%s:%s error creating ExpSetup COM object\n",
-            driverName, functionName);
-        return;
-    }
-    if (!this->pDocFile->CreateObject("WinX32.DocFile")) {
-        printf("%s:%s error creating DocFile COM object\n",
-            driverName, functionName);
-        return;
-    }
-    if (!this->pROIRect->CreateObject("WinX32.ROIRect")) {
-        printf("%s:%s error creating ROIRect COM object\n",
-            driverName, functionName);
-        return;
-    }
     
-    pVarOutput = this->pExpSetup->InvokeMethod("GetParam", EXP_XDIMDET, &result);
-    if (!pVarOutput) {
-        printf("%s:%s error calling ActiveX interface to get ExpSetup X dimension\n",
-            driverName, functionName);
-        return;
-    } 
-    
-    if (pVarOutput) printf("%s:%s EXP_XDIMDET = %d\n", 
-        driverName, functionName, pVarOutput->iVal);
 }
