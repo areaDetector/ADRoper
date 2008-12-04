@@ -7,7 +7,6 @@
 
 int main(int argc, void **argv) 
 {
-    IDispatch *pROI;
     CWinx32App2 *pWinx32App = new(CWinx32App2);
     CExpSetup2  *pExpSetup  = new(CExpSetup2);
     CDocFile4   *pDocFile   = new(CDocFile4);
@@ -18,8 +17,8 @@ int main(int argc, void **argv)
     HRESULT hr;
     short result;
     CString version;
-	SAFEARRAY *pData;
-	short *pVarData;
+    SAFEARRAY *pData;
+    short *pVarData;
 
 
     hr = CoInitialize(NULL);
@@ -43,7 +42,7 @@ int main(int argc, void **argv)
     varResult = pExpSetup->GetParam(EXP_XDIMDET, &result);
     printf("XDIMDET = %d\n", varResult.lVal);
 
-    pROIRect->Set(1, 20, 500, 799, 2, 2);
+    pROIRect->Set(1, 1, 2, 2, 1, 1);
     pExpSetup->ClearROIs();
     pExpSetup->SetROI(pROIRect->m_lpDispatch);
     VariantInit(&varArg);
