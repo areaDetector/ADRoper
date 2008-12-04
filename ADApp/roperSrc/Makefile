@@ -9,7 +9,6 @@ include $(TOP)/configure/CONFIG
 
 LIBRARY_IOC_WIN32 = roper
 LIBRARY_IOC_cygwin32 = roper
-LIB_SRCS += XYDispDriver.cpp
 LIB_SRCS += roper.cpp
 LIB_SRCS += drvRoperEpics.c
 LIB_LIBS += ADBase ADPlugin netCDF
@@ -18,8 +17,7 @@ LIB_LIBS += $(EPICS_BASE_IOC_LIBS)
 
 #==================================
 PROD_IOC_WIN32 += comTest1
-comTest1_LIBS += roper
-comTest1_SYS_LIBS += ole32 oleaut32
+comTest1_SYS_LIBS += ole32 oleaut32 nafxcw
 
 PROD_IOC_WIN32 += roperApp
 PROD_IOC_cygwin32 += roperApp
@@ -37,7 +35,7 @@ roperApp_LIBS += calc sscan autosave
 roperApp_LIBS += asyn
 roperApp_LIBS += $(EPICS_BASE_IOC_LIBS)
 
-roperApp_SYS_LIBS += ole32 oleaut32
+roperApp_SYS_LIBS += ole32 oleaut32 nafxcw
 roperApp_SYS_LIBS_cygwin32 += rpc
 
 #=============================
