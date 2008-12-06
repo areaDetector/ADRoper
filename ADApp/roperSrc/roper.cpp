@@ -48,6 +48,50 @@
 /* The polling interval when checking to see if acquisition is complete */
 #define ROPER_POLL_TIME .01
 
+static const char *controllerNames[] = {
+    "No Controller",
+    "ST143",
+    "ST130",
+    "ST138",
+    "VICCD BOX",
+    "PentaMax",
+    "ST120_T1",
+    "ST120_T2",
+    "ST121",
+    "ST135",
+    "ST133",
+    "VICCD",
+    "ST116",
+    "OMA3",
+    "LOW_COST_SPEC",
+    "MICROMAX",
+    "SPECTROMAX",
+    "MICROVIEW",
+    "ST133_5MHZ",
+    "EMPTY_5MHZ",
+    "EPIX_CONTROLLER",
+    "PVCAM",
+    "GENERIC",
+    "ARC_CCD_100",
+    "ST133_2MHZ"
+};
+
+typedef enum
+{
+    RoperImageNormal,
+    RoperImageContinuous,
+    RoperImageFocus
+} RoperImageMode_t;
+
+typedef enum
+{
+    RoperShutterNormal,
+    RoperShutterClosed,
+    RoperShutterOpen
+} RoperShutterMode_t;
+
+static int numControllerNames = sizeof(controllerNames)/sizeof(controllerNames[0]);
+
 static const char *driverName = "drvRoper";
 
 class roper : public ADDriver {
@@ -67,6 +111,7 @@ public:
     asynStatus setROI();
     NDArray *getData();
     asynStatus getStatus();
+    int getAcquireStatus();
     asynStatus saveFile();
     
     /* Our data */
@@ -82,8 +127,10 @@ public:
 /* If we have any private driver parameters they begin with ADFirstDriverParam and should end
    with ADLastDriverParam, which is used for setting the size of the parameter library table */
 typedef enum {
-    RoperTemperature
+    RoperShutterMode
         = ADFirstDriverParam,
+    RoperNumAcquisitions,
+    RoperNumAcquisitionsCounter,
     RoperComment1,
     RoperComment2,
     RoperComment3,
@@ -93,12 +140,14 @@ typedef enum {
 } RoperParam_t;
 
 static asynParamString_t RoperParamString[] = {
-    {RoperTemperature,    "TEMPERATURE"},
-    {RoperComment1,       "COMMENT1"},
-    {RoperComment2,       "COMMENT2"},
-    {RoperComment3,       "COMMENT3"},
-    {RoperComment4,       "COMMENT4"},
-    {RoperComment5,       "COMMENT5"}
+    {RoperShutterMode,            "ROPER_SHUTTER_MODE"},
+    {RoperNumAcquisitions,        "ROPER_NACQUISITIONS"},
+    {RoperNumAcquisitionsCounter, "ROPER_NACQUISITIONS_COUNTER"},
+    {RoperComment1,               "COMMENT1"},
+    {RoperComment2,               "COMMENT2"},
+    {RoperComment3,               "COMMENT3"},
+    {RoperComment4,               "COMMENT4"},
+    {RoperComment5,               "COMMENT5"}
 };
 
 #define NUM_ROPER_PARAMS (sizeof(RoperParamString)/sizeof(RoperParamString[0]))
@@ -110,6 +159,7 @@ asynStatus roper::saveFile()
     VARIANT varArg;
     BSTR fName;
     size_t len;
+short result;
     asynStatus status=asynSuccess;
     const char *functionName="saveFile";
     
@@ -121,8 +171,11 @@ asynStatus roper::saveFile()
     fName = SysAllocString(wideFullFileName);
     varArg.bstrVal = fName;
     try {
+varArg = this->pDocFile->GetParam(DM_DOCTYPE, &result);
+printf("DM_DOCTYPE=%d\n", varArg.lVal);
         this->pDocFile->SetParam(DM_FILENAME, &varArg);
         this->pDocFile->Save();
+        setStringParam(ADFullFileName, fullFileName);
     }
     catch(CException *pEx) {
         pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
@@ -139,7 +192,8 @@ asynStatus roper::saveFile()
 NDArray *roper::getData() {
 
     NDArray *pArray = NULL;
-    VARIANT varData;
+    VARIANT varData, varResult;
+    short result;
     SAFEARRAY *pData;
     int dim;
     LONG lbound, ubound;
@@ -147,13 +201,18 @@ NDArray *roper::getData() {
     int nDims;
     VARTYPE varType;
     NDDataType_t dataType;
+    int docDataType;
     NDArrayInfo arrayInfo;
     void HUGEP *pVarData;
+    bool typeMismatch;
     const char *functionName = "getData";
         
     VariantInit(&varData);
+    VariantInit(&varResult);
     try {
         this->pDocFile->GetFrame(1, &varData);
+        varResult = this->pDocFile->GetParam(DM_DATATYPE, &result);
+        docDataType = varResult.lVal;
         pData = varData.parray;
         nDims = SafeArrayGetDim(pData);
         for (dim=0; dim<nDims; dim++) {
@@ -162,24 +221,47 @@ NDArray *roper::getData() {
             dims[dim] = ubound - lbound + 1;
         }
         SafeArrayGetVartype(pData, &varType);
-        switch (varType) {
-            case VT_I2:
+        typeMismatch = TRUE;
+        switch (docDataType) {
+            case X_BYTE:
+                dataType = NDUInt8;
+                typeMismatch = (varType != VT_UI1);
+                break;
+            case X_SHORT:
                 dataType = NDInt16;
+                typeMismatch = (varType != VT_I2);
                 break;
-            case VT_I4:
+            case X_UINT16:
+                dataType = NDUInt16;
+                typeMismatch = (varType != VT_I2);
+                break;
+            case X_LONG:
                 dataType = NDInt32;
+                typeMismatch = (varType != VT_I4);
                 break;
-            case VT_R4:
+            case X_ULONG:
+                dataType = NDUInt32;
+                typeMismatch = (varType != VT_I4);
+                break;
+            case X_FLOAT:
                 dataType = NDFloat32;
+                typeMismatch = (varType != VT_R4);
                 break;
-            case VT_R8:
+            case X_DOUBLE:
                 dataType = NDFloat64;
+                typeMismatch = (varType != VT_R8);
                 break;
             default:
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
                     "%s:%s: unknown data type = %d\n", 
-                    driverName, functionName, varType);
+                    driverName, functionName, docDataType);
                 return(NULL);
+        }
+        if (typeMismatch) {
+            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+                "%s:%s: data type mismatch: docDataType=%d, varType=%d\n", 
+                driverName, functionName, docDataType, varType);
+            return(NULL);
         }
         pArray = this->pNDArrayPool->alloc(nDims, dims, dataType, 0, NULL);
         pArray->getInfo(&arrayInfo);
@@ -203,12 +285,39 @@ NDArray *roper::getData() {
     return(pArray);
 }
 
+int roper::getAcquireStatus()
+{
+    short result;
+    int acquire;
+    const char *functionName = "getAcquireStatus";
+    VARIANT varResult;
+    
+    try {
+        varResult = pExpSetup->GetParam(EXP_RUNNING, &result);
+        acquire = varResult.lVal;
+        varResult = pExpSetup->GetParam(EXP_CSEQUENTS, &result);
+        setIntegerParam(ADNumImagesCounter, varResult.lVal);
+        varResult = pExpSetup->GetParam(EXP_CACCUMS, &result);
+        setIntegerParam(ADNumExposuresCounter, varResult.lVal);
+    }
+    catch(CException *pEx) {
+        pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
+        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+            "%s:%s: exception = %s\n", 
+            driverName, functionName, this->errorMessage);
+        pEx->Delete();
+        return(-1);
+    }
+    callParamCallbacks();
+    return(acquire);
+}
+
 asynStatus roper::getStatus()
 {
     short result;
     const char *functionName = "getStatus";
     VARIANT varResult;
-    IDispatch pROIDispatch;
+    IDispatch *pROIDispatch;
     double top, bottom, left, right;
     long minX, minY, sizeX, sizeY, binX, binY;
     
@@ -223,10 +332,24 @@ asynStatus roper::getStatus()
         setIntegerParam(ADMaxSizeY, varResult.lVal);
         varResult = pExpSetup->GetParam(EXP_SEQUENTS, &result);
         setIntegerParam(ADNumImages, varResult.lVal);
+        varResult = pExpSetup->GetParam(EXP_SHUTTER_CONTROL, &result);
+        setIntegerParam(RoperShutterMode, varResult.lVal);
+        varResult = pExpSetup->GetParam(EXP_TIMING_MODE, &result);
+        setIntegerParam(ADTriggerMode, varResult.lVal);
+        varResult = pExpSetup->GetParam(EXP_DATAFILETYPE, &result);
+        setIntegerParam(ADFileFormat, varResult.lVal);
+printf("EXP_DATAFILETYPE, vt=%d, value=%d\n",  varResult.vt, varResult.lVal);
+        varResult = pExpSetup->GetParam(EXP_GAIN, &result);
+        setDoubleParam(ADFileFormat, (double)varResult.lVal);
+printf("EXP_GAIN, vt=%d, value=%d\n", varResult.vt,  varResult.lVal);
+        varResult = pExpSetup->GetParam(EXP_FOCUS_NFRAME, &result);
+printf("EXP_FOCUS_NFRAME, vt=%d, value=%d\n",  varResult.vt, varResult.lVal);
         varResult = pExpSetup->GetParam(EXP_EXPOSURE, &result);
         setDoubleParam(ADAcquireTime, varResult.dblVal);
-        pROIDispatch = pExpSetup->getROI(1);
-        pROIRect->AttachDispatch(ROIDispatch);
+        varResult = pExpSetup->GetParam(EXP_ACTUAL_TEMP, &result);
+        setDoubleParam(ADTemperature, varResult.dblVal);
+        pROIDispatch = pExpSetup->GetROI(1);
+        pROIRect->AttachDispatch(pROIDispatch);
         pROIRect->Get(&top, &left, &bottom, &right, &binX, &binY);
         minX = int(left);
         minY = int(top);
@@ -235,15 +358,18 @@ asynStatus roper::getStatus()
         setIntegerParam(ADMinX, minX);
         setIntegerParam(ADMinY, minY);
         setIntegerParam(ADSizeX, sizeX);
-        setIntegerParam(ADSizeY, sizeX);
+        setIntegerParam(ADSizeY, sizeY);
     }
     catch(CException *pEx) {
         pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
-        printf("%s:%s: exception = %s\n", 
+        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+            "%s:%s: exception = %s\n", 
             driverName, functionName, this->errorMessage);
         pEx->Delete();
         return(asynError);
     }
+    this->getAcquireStatus();
+    callParamCallbacks();
     return(asynSuccess);
 }
 
@@ -284,13 +410,6 @@ asynStatus roper::setROI() {
         minY = 1; 
         status = setIntegerParam(ADMinY, minY);
     }
-    /* The size must be a multiple of the binning or the controller can generate an error */
-    if (sizeX < binX) sizeX = binX;    
-    sizeX = (sizeX/binX) * binX;
-    status = setIntegerParam(ADSizeX, sizeX);
-    if (sizeY < binY) sizeY = binY;    
-    sizeY = (sizeY/binY) * binY;
-    status = setIntegerParam(ADSizeY, sizeY);
     if (minX > maxSizeX-binX) {
         minX = maxSizeX-binX; 
         status = setIntegerParam(ADMinX, minX);
@@ -299,15 +418,15 @@ asynStatus roper::setROI() {
         minY = maxSizeY-binY; 
         status = setIntegerParam(ADMinY, minY);
     }
-    if (minX+sizeX > maxSizeX) {
-        sizeX = maxSizeX-minX; 
-        status = setIntegerParam(ADSizeX, sizeX);
-    }
-    if (minY+sizeY > maxSizeY) {
-        sizeY = maxSizeY-minY; 
-        status = setIntegerParam(ADSizeY, sizeY);
-    }
-
+    if (sizeX < binX) sizeX = binX;    
+    if (sizeY < binY) sizeY = binY;    
+    if (minX+sizeX-1 > maxSizeX) sizeX = maxSizeX-minX; 
+    if (minY+sizeY-1 > maxSizeY) sizeY = maxSizeY-minY; 
+    /* The size must be a multiple of the binning or the controller can generate an error */
+    sizeX = (sizeX/binX) * binX;
+    sizeY = (sizeY/binY) * binY;
+    status = setIntegerParam(ADSizeX, sizeX);
+    status = setIntegerParam(ADSizeY, sizeY);
     ROILeft = minX;
     ROIRight = minX + sizeX - 1;
     ROITop = minY;
@@ -359,7 +478,7 @@ void roper::roperTask()
     /* This thread computes new image data and does the callbacks to send it to higher layers */
     int status = asynSuccess;
     int imageCounter;
-    int numImages, numImagesCounter;
+    int numAcquisitions, numAcquisitionsCounter;
     int imageMode;
     int arrayCallbacks;
     int acquire, autoSave;
@@ -371,7 +490,6 @@ void roper::roperTask()
     VARIANT varArg;
     IDispatch *pDocFileDispatch;
     HRESULT hr;
-    short result;
 
     /* Initialize the COM system for this thread */
     hr = INITIALIZE_COM;
@@ -402,7 +520,7 @@ void roper::roperTask()
             status = epicsEventWait(this->startEventId);
             epicsMutexLock(this->mutexId);
             getIntegerParam(ADAcquire, &acquire);
-            setIntegerParam(ADNumImagesCounter, 0);
+            setIntegerParam(RoperNumAcquisitionsCounter, 0);
         }
         
         /* We are acquiring. */
@@ -412,6 +530,8 @@ void roper::roperTask()
         /* Get the exposure parameters */
         getDoubleParam(ADAcquireTime, &acquireTime);
         getDoubleParam(ADAcquirePeriod, &acquirePeriod);
+        getIntegerParam(ADImageMode, &imageMode);
+        getIntegerParam(RoperNumAcquisitions, &numAcquisitions);
         
         setIntegerParam(ADStatus, ADStatusAcquire);
         
@@ -426,18 +546,34 @@ void roper::roperTask()
             /* Stop current exposure, if any */
             this->pExpSetup->Stop();
             this->pDocFile->Close();
-            pDocFileDispatch = pExpSetup->Start2(&varArg);
+            switch (imageMode) {
+                case RoperImageNormal:
+                case RoperImageContinuous:
+                    pDocFileDispatch = pExpSetup->Start2(&varArg);
+                    break;
+                case RoperImageFocus:
+                    pDocFileDispatch = pExpSetup->StartFocus2(&varArg);
+                    break;
+            }
             pDocFile->AttachDispatch(pDocFileDispatch);
 
             /* Wait for acquisition to complete, but allow acquire stop events to be handled */
-            while (acquire) {
+            while (1) {
+                epicsMutexUnlock(this->mutexId);
                 status = epicsEventWaitWithTimeout(this->stopEventId, ROPER_POLL_TIME);
+                epicsMutexLock(this->mutexId);
                 if (status == epicsEventWaitOK) {
                     /* We got a stop event, abort acquisition */
                     this->pExpSetup->Stop();
+                    acquire = 0;
+                } else {
+                    acquire = this->getAcquireStatus();
                 }
-                varArg = pExpSetup->GetParam(EXP_RUNNING, &result);
-                acquire = varArg.lVal;
+                if (!acquire) {
+                    /* Close the shutter */
+                    setShutter(ADShutterClosed);
+                    break;
+                }
             }
         }
         catch(CException *pEx) {
@@ -448,24 +584,16 @@ void roper::roperTask()
             pEx->Delete();
         }
         
-        /* Close the shutter */
-        setShutter(ADShutterClosed);
-       /* Call the callbacks to update any changes */
-        callParamCallbacks();
-        
         /* Get the current parameters */
         getIntegerParam(ADAutoSave,         &autoSave);
         getIntegerParam(ADImageCounter,     &imageCounter);
-        getIntegerParam(ADNumImages,        &numImages);
-        getIntegerParam(ADNumImagesCounter, &numImagesCounter);
-        getIntegerParam(ADImageMode,        &imageMode);
+        getIntegerParam(RoperNumAcquisitionsCounter, &numAcquisitionsCounter);
         getIntegerParam(ADArrayCallbacks,   &arrayCallbacks);
         imageCounter++;
-        numImagesCounter++;
+        numAcquisitionsCounter++;
         setIntegerParam(ADImageCounter, imageCounter);
-        setIntegerParam(ADNumImagesCounter, numImagesCounter);
+        setIntegerParam(RoperNumAcquisitionsCounter, numAcquisitionsCounter);
         
-
         if (arrayCallbacks) {
             /* Get the data from the DocFile */
             pImage = this->getData();
@@ -486,12 +614,12 @@ void roper::roperTask()
         }
         
         /* See if we should save the file */
-        if (autoSave) this->saveFile();
+        if ((imageMode != RoperImageFocus) && autoSave) this->saveFile();
 
         /* See if acquisition is done */
-        if ((imageMode == ADImageSingle) ||
-            ((imageMode == ADImageMultiple) && 
-             (numImagesCounter >= numImages))) {
+        if ((imageMode == RoperImageFocus) ||
+            ((imageMode == RoperImageNormal) && 
+             (numAcquisitionsCounter >= numAcquisitions))) {
             setIntegerParam(ADAcquire, 0);
             asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, 
                   "%s:%s: acquisition completed\n", driverName, functionName);
@@ -528,9 +656,13 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
     int currentlyAcquiring;
     asynStatus status = asynSuccess;
     VARIANT varArg;
+    IDispatch *pDocFileDispatch;
     const char* functionName="writeInt32";
 
+    /* Initialize the variant and set reasonable defaults for data type and value */
     VariantInit(&varArg);
+    varArg.vt = VT_I4;
+    varArg.lVal = value;
     
     /* See if we are currently acquiring.  This must be done before the call to setIntegerParam below */
     getIntegerParam(ADAcquire, &currentlyAcquiring);
@@ -562,21 +694,64 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
             this->setROI();
             break;
         case ADDataType:
+            switch (value) {
+                case NDInt8:
+                case NDUInt8:
+                    varArg.lVal = X_BYTE;
+                    break;
+                case NDInt16:
+                    varArg.lVal = X_SHORT;
+                    break;
+                case NDUInt16:
+                    varArg.lVal = X_UINT16;
+                    break;
+                case NDInt32:
+                    varArg.lVal = X_LONG;
+                    break;
+                case NDUInt32:
+                    varArg.lVal = X_ULONG;
+                    break;
+                case NDFloat32:
+                    varArg.lVal = X_FLOAT;
+                    break;
+                case NDFloat64:
+                    varArg.lVal = X_DOUBLE;
+                    break;
+                default:
+                    asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+                        "%s:%s: unknown data type = %d\n", 
+                        driverName, functionName, value);
+                break;
+            }
+            this->pExpSetup->SetParam(EXP_DATATYPE, &varArg);
             break;
         case ADNumImages:
-            varArg.vt = VT_I2;
-            varArg.iVal = value;
             this->pExpSetup->SetParam(EXP_SEQUENTS, &varArg);
             break;
+        case ADNumExposures:
+            this->pExpSetup->SetParam(EXP_ACCUMS, &varArg);
+            break;
         case ADReverseX:
-            varArg.vt = VT_I2;
-            varArg.iVal = value;
             this->pExpSetup->SetParam(EXP_REVERSE, &varArg);
             break;
         case ADReverseY:
-            varArg.vt = VT_I2;
-            varArg.iVal = value;
             this->pExpSetup->SetParam(EXP_FLIP, &varArg);
+            break;
+        case ADWriteFile:
+            pDocFileDispatch = pExpSetup->GetDocument();
+            if (pDocFileDispatch) {
+                pDocFile->AttachDispatch(pDocFileDispatch);
+                this->saveFile();
+            } else {
+                status = asynError;
+            }
+            setIntegerParam(ADWriteFile, 0);
+            break;
+        case ADTriggerMode:
+            this->pExpSetup->SetParam(EXP_TIMING_MODE, &varArg);
+            break;
+        case RoperShutterMode:
+            this->pExpSetup->SetParam(EXP_SHUTTER_CONTROL, &varArg);
             break;
         case ADShutterControl:
             setShutter(value);
@@ -616,7 +791,10 @@ asynStatus roper::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
     VARIANT varArg;
     const char* functionName="writeInt32";
 
+    /* Initialize the variant and set reasonable defaults for data type and value */
     VariantInit(&varArg);
+    varArg.vt = VT_R4;
+    varArg.fltVal = (epicsFloat32)value;
 
     /* Set the parameter and readback in the parameter library.  This may be overwritten when we read back the
      * status at the end, but that's OK */
@@ -626,11 +804,15 @@ asynStatus roper::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
     try {
         switch (function) {
         case ADAcquireTime:
-            varArg.vt = VT_R4;
-            varArg.fltVal = (epicsFloat32)value;
             this->pExpSetup->SetParam(EXP_EXPOSURE, &varArg);
             break;
+        case ADTemperature:
+            this->pExpSetup->SetParam(EXP_TEMPERATURE, &varArg);
+            break;
         case ADGain:
+            varArg.vt = VT_I4;
+            varArg.lVal = (int)value;
+            this->pExpSetup->SetParam(EXP_GAIN, &varArg);
             break;
         }
     }
@@ -736,6 +918,9 @@ roper::roper(const char *portName, const char *WinX32Name,
     VARIANT varResult;
     HRESULT hr;
     short result;
+    const char *controllerName;
+    int controllerNum;
+    IDispatch *pDocFileDispatch;
  
     /* Initialize the COM system for this thread */
     hr = INITIALIZE_COM;
@@ -770,7 +955,19 @@ roper::roper(const char *portName, const char *WinX32Name,
 
     try {
         varResult = this->pExpSetup->GetParam(EXP_CONTROLLER_NAME, &result);
-printf("EXP_CONTROLLER_NAME, vt=%d\n", varResult.vt);
+        controllerNum = varResult.lVal;
+        if (controllerNum < 0) controllerNum = 0;
+        if (controllerNum >= numControllerNames) controllerNum = 0;
+        controllerName = controllerNames[controllerNum];
+        pDocFileDispatch = pExpSetup->GetDocument();
+        if (pDocFileDispatch) {
+            pDocFile->AttachDispatch(pDocFileDispatch);
+            getData();
+        } else {
+            setIntegerParam(ADImageSizeX, 0);
+            setIntegerParam(ADImageSizeY, 0);
+            setIntegerParam(ADImageSize, 0);
+        }
     }
     catch(CException *pEx) {
         pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
@@ -798,11 +995,13 @@ printf("EXP_CONTROLLER_NAME, vt=%d\n", varResult.vt);
     
     /* Set some default values for parameters */
     status =  setStringParam (ADManufacturer, "Roper Scientific");
-    status |= setStringParam (ADModel, "Unknown");
-    status |= setIntegerParam(ADImageMode, ADImageContinuous);
+    status |= setStringParam (ADModel, controllerName);
+    status |= setIntegerParam(ADImageMode, ADImageSingle);
     status |= setDoubleParam (ADAcquireTime, .1);
     status |= setDoubleParam (ADAcquirePeriod, .5);
-    status |= setIntegerParam(ADNumImages, 100);
+    status |= setIntegerParam(ADNumImages, 1);
+    status |= setIntegerParam(RoperNumAcquisitions, 1);
+    status |= setIntegerParam(RoperNumAcquisitionsCounter, 0);
     if (status) {
         printf("%s: unable to set camera parameters\n", functionName);
         return;
