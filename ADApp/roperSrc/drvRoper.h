@@ -16,7 +16,7 @@
 extern "C" {
 #endif
 
-int roperConfig(const char *portName, const char *WINXName,
+int roperConfig(const char *portName,
                 int maxBuffers, size_t maxMemory);
 
 #ifdef __cplusplus

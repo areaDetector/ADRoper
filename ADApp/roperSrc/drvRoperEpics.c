@@ -22,17 +22,15 @@
 
 /* roperConfig */
 static const iocshArg roperConfigArg0 = {"Port name", iocshArgString};
-static const iocshArg roperConfigArg1 = {"WinX32 name", iocshArgString};
-static const iocshArg roperConfigArg2 = {"maxBuffers", iocshArgInt};
-static const iocshArg roperConfigArg3 = {"maxMemory", iocshArgInt};
+static const iocshArg roperConfigArg1 = {"maxBuffers", iocshArgInt};
+static const iocshArg roperConfigArg2 = {"maxMemory", iocshArgInt};
 static const iocshArg * const roperConfigArgs[] =  {&roperConfigArg0,
                                                     &roperConfigArg1,
-                                                    &roperConfigArg2,
-                                                    &roperConfigArg3};
-static const iocshFuncDef configRoper = {"roperConfig", 4, roperConfigArgs};
+                                                    &roperConfigArg2};
+static const iocshFuncDef configRoper = {"roperConfig", 3, roperConfigArgs};
 static void configRoperCallFunc(const iocshArgBuf *args)
 {
-    roperConfig(args[0].sval, args[1].sval, args[2].ival, args[3].ival);
+    roperConfig(args[0].sval, args[1].ival, args[2].ival);
 }
 
 
