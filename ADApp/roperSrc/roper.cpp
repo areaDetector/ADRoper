@@ -38,11 +38,11 @@
 #include "CROIRect.h"
 
 /* The following macro initializes COM for the default COINIT_MULTITHREADED model 
- * This needs to be done is each thread that can call the COM interfaces 
+ * This needs to be done in each thread that can call the COM interfaces 
  * These threads are:
- * The thread that runs when the roper object is created (typically from st.cmd)
- * The roperTask thread that controls acquisition
- * The port driver thread that sets parameters */
+ *   - The thread that runs when the roper object is created (typically from st.cmd)
+ *   - The roperTask thread that controls acquisition
+ *   - The port driver thread that sets parameters */
 #define INITIALIZE_COM CoInitializeEx(NULL, 0)
 #define ERROR_MESSAGE_SIZE 256
 #define MAX_COMMENT_SIZE 80
@@ -313,6 +313,7 @@ NDArray *roper::getData()
         SafeArrayAccessData(pData, &pVarData);
         memcpy(pArray->pData, pVarData, arrayInfo.totalBytes);
         SafeArrayUnaccessData(pData);
+        SafeArrayDestroy(pData);
         setIntegerParam(ADImageSize, arrayInfo.totalBytes);
         setIntegerParam(ADImageSizeX, dims[0]);
         setIntegerParam(ADImageSizeY, dims[1]);
@@ -691,8 +692,13 @@ void roper::roperTask()
         }
         
         /* See if we should save the file */
-        if ((imageMode != RoperImageFocus) && autoSave) this->saveFile();
-
+        if ((imageMode != RoperImageFocus) && autoSave) {
+            setIntegerParam(ADStatus, ADStatusSaving);
+            callParamCallbacks();
+            this->saveFile();
+            callParamCallbacks();
+        }
+        
         /* See if acquisition is done */
         if ((imageMode == RoperImageFocus) ||
             ((imageMode == RoperImageNormal) && 
@@ -789,6 +795,8 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
             this->pExpSetup->SetParam(EXP_FLIP, &varArg);
             break;
         case ADWriteFile:
+            /* Call the callbacks so the busy state is visible while file is being saved */
+            callParamCallbacks();
             status = this->saveFile();
             setIntegerParam(ADWriteFile, 0);
             break;
