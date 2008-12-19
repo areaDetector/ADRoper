@@ -1,16 +1,16 @@
 //#define _AFXDLL
 #include "stdafx.h"
-#include "CWinx32App2.h"
-#include "CExpSetup2.h"
-#include "CDocFile4.h"
-#include "CROIRect.h"
+#include "CWinx32App20.h"
+#include "CExpSetup20.h"
+#include "CDocFile40.h"
+#include "CROIRect0.h"
 
 int main(int argc, void **argv) 
 {
-    CWinx32App2 *pWinx32App = new(CWinx32App2);
-    CExpSetup2  *pExpSetup  = new(CExpSetup2);
-    CDocFile4   *pDocFile   = new(CDocFile4);
-    CROIRect    *pROIRect   = new(CROIRect);
+    CWinx32App20 *pWinx32App = new(CWinx32App20);
+    CExpSetup20  *pExpSetup  = new(CExpSetup20);
+    CDocFile40   *pDocFile   = new(CDocFile40);
+    CROIRect0    *pROIRect   = new(CROIRect0);
     IDispatch  *pDocFileDispatch;
     VARIANT varResult;
     VARIANT varArg;

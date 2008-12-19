@@ -1,12 +1,12 @@
 #include "stdafx.h"
-#include "CExpSetup2.h"
-#include "CDocFile4.h"
+#include "CExpSetup20.h"
+#include "CDocFile40.h"
 #define MAX_LOOPS 10
 
 int main(int argc, void **argv) 
 {
-    CExpSetup2  *pExpSetup  = new(CExpSetup2);
-    CDocFile4   *pDocFile   = new(CDocFile4);
+    CExpSetup20  *pExpSetup  = new(CExpSetup20);
+    CDocFile40   *pDocFile   = new(CDocFile40);
     IDispatch  *pDocFileDispatch=NULL;
     VARIANT varResult;
     VARIANT varArg;

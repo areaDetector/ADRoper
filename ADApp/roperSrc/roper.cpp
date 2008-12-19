@@ -32,10 +32,10 @@
 
 #include "drvRoper.h"
 #include "stdafx.h"
-#include "CWinx32App2.h"
-#include "CExpSetup2.h"
-#include "CDocFile4.h"
-#include "CROIRect.h"
+#include "CWinx32App20.h"
+#include "CExpSetup20.h"
+#include "CDocFile40.h"
+#include "CROIRect0.h"
 
 /* The following macro initializes COM for the default COINIT_MULTITHREADED model 
  * This needs to be done in each thread that can call the COM interfaces 
@@ -119,10 +119,10 @@ public:
     /* Our data */
     epicsEventId startEventId;
     epicsEventId stopEventId;
-    CWinx32App2 *pWinx32App;
-    CExpSetup2  *pExpSetup;
-    CDocFile4   *pDocFile;
-    CROIRect    *pROIRect;
+    CWinx32App20 *pWinx32App;
+    CExpSetup20  *pExpSetup;
+    CDocFile40   *pDocFile;
+    CROIRect0    *pROIRect;
     char errorMessage[ERROR_MESSAGE_SIZE];
 };
 
@@ -996,10 +996,10 @@ roper::roper(const char *portName,
 
     /* Create the COleDispatchDriver objects used to communicate with COM */
     VariantInit(&varResult);
-    this->pWinx32App = new(CWinx32App2);
-    this->pExpSetup  = new(CExpSetup2);
-    this->pDocFile   = new(CDocFile4);
-    this->pROIRect   = new(CROIRect);
+    this->pWinx32App = new(CWinx32App20);
+    this->pExpSetup  = new(CExpSetup20);
+    this->pDocFile   = new(CDocFile40);
+    this->pROIRect   = new(CROIRect0);
 
     /* Connect to the WinX32App and ExpSetup COM objects */
     if (!pWinx32App->CreateDispatch("WinX32.Winx32App.2")) {
