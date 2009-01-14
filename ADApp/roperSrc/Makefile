@@ -11,7 +11,7 @@ LIBRARY_IOC_WIN32 = roper
 LIBRARY_IOC_cygwin32 = roper
 LIB_SRCS += roper.cpp
 LIB_SRCS += drvRoperEpics.c
-LIB_LIBS += ADBase ADPlugin netCDF
+LIB_LIBS += NDPlugin ADBase netCDF
 LIB_LIBS += asyn
 LIB_LIBS += $(EPICS_BASE_IOC_LIBS)
 
@@ -34,7 +34,7 @@ roperApp_SRCS_DEFAULT += roperApp_registerRecordDeviceDriver.cpp roperAppMain.cp
 
 # Add locally compiled object code
 roperApp_LIBS += roper
-roperApp_LIBS += ADPlugin ADBase netCDF
+roperApp_LIBS += NDPlugin ADBase netCDF
 roperApp_LIBS += calc sscan autosave 
 roperApp_LIBS += asyn
 roperApp_LIBS += $(EPICS_BASE_IOC_LIBS)
