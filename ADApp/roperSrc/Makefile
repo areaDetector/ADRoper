@@ -8,7 +8,7 @@ include $(TOP)/configure/CONFIG
 #USR_CXXFLAGS +=
 
 LIBRARY_IOC_WIN32 = roper
-LIBRARY_IOC_cygwin32 = roper
+#LIBRARY_IOC_cygwin32 = roper
 LIB_SRCS += roper.cpp
 LIB_SRCS += drvRoperEpics.c
 LIB_LIBS += NDPlugin ADBase netCDF
@@ -25,7 +25,7 @@ PROD_IOC_WIN32 += comTest3
 comTest3_SYS_LIBS += ole32 oleaut32 nafxcw
 
 PROD_IOC_WIN32 += roperApp
-PROD_IOC_cygwin32 += roperApp
+#PROD_IOC_cygwin32 += roperApp
 # <name>.dbd will be created from <name>Include.dbd
 DBD += roperApp.dbd
 DBD += roperSupport.dbd
