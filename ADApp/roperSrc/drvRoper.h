@@ -17,7 +17,8 @@ extern "C" {
 #endif
 
 int roperConfig(const char *portName,
-                int maxBuffers, size_t maxMemory);
+                int maxBuffers, size_t maxMemory,
+                int priority, int stackSize);
 
 #ifdef __cplusplus
 }

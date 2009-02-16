@@ -98,7 +98,8 @@ static const char *driverName = "drvRoper";
 class roper : public ADDriver {
 public:
     roper(const char *portName,
-          int maxBuffers, size_t maxMemory);
+          int maxBuffers, size_t maxMemory,
+          int priority, int stackSize);
                  
     /* These are the methods that we override from ADDriver */
     virtual asynStatus writeInt32(asynUser *pasynUser, epicsInt32 value);
@@ -966,16 +967,21 @@ void roper::report(FILE *fp, int details)
 }
 
 extern "C" int roperConfig(const char *portName,
-                           int maxBuffers, size_t maxMemory)
+                           int maxBuffers, size_t maxMemory,
+                           int priority, int stackSize)
 {
-    new roper(portName, maxBuffers, maxMemory);
+    new roper(portName, maxBuffers, maxMemory, priority, stackSize);
     return(asynSuccess);
 }
 
 roper::roper(const char *portName,
-             int maxBuffers, size_t maxMemory)
+             int maxBuffers, size_t maxMemory,
+             int priority, int stackSize)
 
-    : ADDriver(portName, 1, ADLastDriverParam, maxBuffers, maxMemory, 0, 0)
+    : ADDriver(portName, 1, ADLastDriverParam, maxBuffers, maxMemory, 
+               0, 0,             /* No interfaces beyond those set in ADDriver.cpp */
+               ASYN_CANBLOCK, 1, /* ASYN_CANBLOCK=1, ASYN_MULTIDEVICE=0, autoConnect=1 */
+               priority, stackSize)
 
 {
     int status = asynSuccess;
