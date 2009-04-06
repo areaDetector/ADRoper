@@ -42,7 +42,7 @@ int main(int argc, void **argv)
     varResult = pExpSetup->GetParam(EXP_XDIMDET, &result);
     printf("XDIMDET = %d\n", varResult.lVal);
 
-    pROIRect->Set(1, 1, 2, 2, 1, 1);
+    pROIRect->Set(1, 1, 500, 600, 1, 1);
     pExpSetup->ClearROIs();
     pExpSetup->SetROI(pROIRect->m_lpDispatch);
     VariantInit(&varArg);
