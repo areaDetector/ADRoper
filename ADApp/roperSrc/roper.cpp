@@ -468,10 +468,6 @@ asynStatus roper::setROI()
     status = getIntegerParam(ADBinY,  &binY);
     status = getIntegerParam(ADMaxSizeX, &maxSizeX);
     status = getIntegerParam(ADMaxSizeY, &maxSizeY);
-    if (minX < 1) {
-        minX = 1;
-        setIntegerParam(ADMinX, minX);
-    }
     /* Make sure parameters are consistent, fix them if they are not */
     if (binX < 1) {
         binX = 1; 
@@ -499,8 +495,8 @@ asynStatus roper::setROI()
     }
     if (sizeX < binX) sizeX = binX;    
     if (sizeY < binY) sizeY = binY;    
-    if (minX+sizeX-1 > maxSizeX) sizeX = maxSizeX-minX; 
-    if (minY+sizeY-1 > maxSizeY) sizeY = maxSizeY-minY; 
+    if (minX+sizeX-1 > maxSizeX) sizeX = maxSizeX-minX+1; 
+    if (minY+sizeY-1 > maxSizeY) sizeY = maxSizeY-minY+1; 
     /* The size must be a multiple of the binning or the controller can generate an error */
     sizeX = (sizeX/binX) * binX;
     sizeY = (sizeY/binY) * binY;
@@ -515,7 +511,7 @@ asynStatus roper::setROI()
         this->pROIRect->Set(ROITop, ROILeft, ROIBottom, ROIRight, binX, binY);
         this->pExpSetup->ClearROIs();
         this->pExpSetup->SetROI(this->pROIRect->m_lpDispatch);
-        varArg.vt = VT_I4;
+        varArg.vt = VT_I2;
         varArg.lVal = 1;
         this->pExpSetup->SetParam(EXP_USEROI, &varArg);
     }
