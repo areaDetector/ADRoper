@@ -342,10 +342,14 @@ int roper::getAcquireStatus()
     try {
         varResult = pExpSetup->GetParam(EXP_RUNNING, &result);
         acquire = varResult.lVal;
+        /* NOTE: EXP_CSEQUENTS and EXP_CACCUMS should do what we want, but in spite of being
+         * documented they actually do not work.  Skip. */
+        /*
         varResult = pExpSetup->GetParam(EXP_CSEQUENTS, &result);
         setIntegerParam(ADNumImagesCounter, varResult.lVal);
         varResult = pExpSetup->GetParam(EXP_CACCUMS, &result);
         setIntegerParam(ADNumExposuresCounter, varResult.lVal);
+        */
     }
     catch(CException *pEx) {
         pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
@@ -361,6 +365,11 @@ int roper::getAcquireStatus()
 
 asynStatus roper::getStatus()
 {
+    /* NOTE: There seems to be a problem in WinView.  
+     * If this function is called immediately after acquisition is started
+     * then the detector seems to be instantly done when getAcquireStatus() is called?
+     * Work around this by only calling getStatus() from writeInt32 and writeFloat64 if a parameter
+     * is actually changed, not when the ADFileNumber or other writes happen */
     short result;
     const char *functionName = "getStatus";
     VARIANT varResult;
@@ -408,7 +417,6 @@ asynStatus roper::getStatus()
         pEx->Delete();
         return(asynError);
     }
-    this->getAcquireStatus();
     callParamCallbacks();
     return(asynSuccess);
 }
@@ -512,7 +520,7 @@ asynStatus roper::setROI()
         this->pExpSetup->ClearROIs();
         this->pExpSetup->SetROI(this->pROIRect->m_lpDispatch);
         varArg.vt = VT_I2;
-        varArg.lVal = 1;
+        varArg.iVal = 1;
         this->pExpSetup->SetParam(EXP_USEROI, &varArg);
     }
     catch(CException *pEx) {
@@ -738,6 +746,7 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
     int roperDataType;
     asynStatus status = asynSuccess;
     VARIANT varArg;
+    int needReadStatus=1;
     const char* functionName="writeInt32";
 
     /* Initialize the variant and set reasonable defaults for data type and value */
@@ -805,6 +814,7 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
             break;
         case ADShutterControl:
             setShutter(value);
+            needReadStatus = 0;
             break;
         case RoperAutoDataType:
             getIntegerParam(ADDataType, &dataType);
@@ -815,6 +825,9 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
                 varArg.lVal = roperDataType;
                 this->pExpSetup->SetParam(EXP_DATATYPE, &varArg);
             }
+            break;
+        default:
+            needReadStatus = 0;
             break;
         }
     }
@@ -827,8 +840,8 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
         status = asynError;
     }
     
-    /* Read the actual state of the detector after this operation */
-    this->getStatus();
+    /* Read the actual state of the detector after this operation if anything could have changed */
+    if (needReadStatus) this->getStatus();
     
     /* Do callbacks so higher layers see any changes */
     callParamCallbacks();
@@ -850,6 +863,7 @@ asynStatus roper::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
     int function = pasynUser->reason;
     asynStatus status = asynSuccess;
     VARIANT varArg;
+    int needReadStatus=1;
     const char* functionName="writeInt32";
 
     /* Initialize the variant and set reasonable defaults for data type and value */
@@ -875,6 +889,9 @@ asynStatus roper::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
             varArg.lVal = (int)value;
             this->pExpSetup->SetParam(EXP_GAIN, &varArg);
             break;
+        default:
+            needReadStatus = 0;
+            break;
         }
     }
     catch(CException *pEx) {
@@ -886,7 +903,7 @@ asynStatus roper::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
     }
 
     /* Read the actual state of the detector after this operation */
-    this->getStatus();
+    if (needReadStatus) this->getStatus();
 
     /* Do callbacks so higher layers see any changes */
     callParamCallbacks();
