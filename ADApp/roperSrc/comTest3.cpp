@@ -1,13 +1,16 @@
 #include "stdafx.h"
 #include "CExpSetup20.h"
 #include "CDocFile40.h"
+#include "CROIRect0.h"
 #define MAX_LOOPS 10
 
 int main(int argc, void **argv) 
 {
     CExpSetup20  *pExpSetup  = new(CExpSetup20);
     CDocFile40   *pDocFile   = new(CDocFile40);
+    CROIRect0    *pROIRect   = new(CROIRect0);
     IDispatch  *pDocFileDispatch=NULL;
+    IDispatch *pROIDispatch;
     VARIANT varResult;
     VARIANT varArg;
     HRESULT hr;
@@ -15,11 +18,14 @@ int main(int argc, void **argv)
     char errorMessage[256];
     int loop=0;
     double elapsedTime[10];
+    double top, bottom, left, right;
+    long binX, binY;
     DWORD start_ms;
     char fileName[80];
 
     try {
         VariantInit(&varArg);
+        VariantInit(&varResult);
         hr = CoInitialize(NULL);
         if (hr != S_OK) {
             printf("error calling CoInitialize\n");
@@ -81,6 +87,23 @@ int main(int argc, void **argv)
             elapsedTime[2] = (GetTickCount() - start_ms)/1000.;
             pDocFile->AttachDispatch(pDocFileDispatch);
             elapsedTime[3] = (GetTickCount() - start_ms)/1000.;
+            /* It seems like reading these parameters causes EXP_RUNNING poll to return 0? */
+            /* Commenting out the first half of these polls crashes Windows! */
+            varResult = pExpSetup->GetParam(EXP_REVERSE, &result);
+            varResult = pExpSetup->GetParam(EXP_FLIP, &result);
+            varResult = pExpSetup->GetParam(EXP_SEQUENTS, &result);
+            varResult = pExpSetup->GetParam(EXP_SHUTTER_CONTROL, &result);
+            varResult = pExpSetup->GetParam(EXP_TIMING_MODE, &result);
+            varResult = pExpSetup->GetParam(EXP_AUTOD, &result);
+            varResult = pExpSetup->GetParam(EXP_GAIN, &result);
+            varResult = pExpSetup->GetParam(EXP_EXPOSURE, &result);
+            varResult = pExpSetup->GetParam(EXP_ACTUAL_TEMP, &result);
+            pROIDispatch = pExpSetup->GetROI(1);
+            pROIRect->AttachDispatch(pROIDispatch);
+            pROIRect->Get(&top, &left, &bottom, &right, &binX, &binY);
+            varResult = pExpSetup->GetParam(EXP_CSEQUENTS, &result);
+            varResult = pExpSetup->GetParam(EXP_CACCUMS, &result);
+
             /* Wait for acquisition to complete */
             while (1) {
                 Sleep(10);
