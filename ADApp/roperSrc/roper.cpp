@@ -586,7 +586,7 @@ void roper::roperTask()
     }
     VariantInit(&varArg);
 
-    epicsMutexLock(this->mutexId);
+    this->lock();
     /* Loop forever */
     while (1) {
         /* Is acquisition active? */
@@ -599,9 +599,9 @@ void roper::roperTask()
             /* Release the lock while we wait for an event that says acquire has started, then lock again */
             asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, 
                 "%s:%s: waiting for acquire to start\n", driverName, functionName);
-            epicsMutexUnlock(this->mutexId);
+            this->unlock();
             status = epicsEventWait(this->startEventId);
-            epicsMutexLock(this->mutexId);
+            this->lock();
             getIntegerParam(ADAcquire, &acquire);
             setIntegerParam(RoperNumAcquisitionsCounter, 0);
         }
@@ -642,9 +642,9 @@ void roper::roperTask()
 
             /* Wait for acquisition to complete, but allow acquire stop events to be handled */
             while (1) {
-                epicsMutexUnlock(this->mutexId);
+                this->unlock();
                 status = epicsEventWaitWithTimeout(this->stopEventId, ROPER_POLL_TIME);
-                epicsMutexLock(this->mutexId);
+                this->lock();
                 if (status == epicsEventWaitOK) {
                     /* We got a stop event, abort acquisition */
                     this->pExpSetup->Stop();
@@ -687,11 +687,11 @@ void roper::roperTask()
                 /* Call the NDArray callback */
                 /* Must release the lock here, or we can get into a deadlock, because we can
                  * block on the plugin lock, and the plugin can be calling us */
-                epicsMutexUnlock(this->mutexId);
+                this->unlock();
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, 
                      "%s:%s: calling imageData callback\n", driverName, functionName);
                 doCallbacksGenericPointer(pImage, NDArrayData, 0);
-                epicsMutexLock(this->mutexId);
+                this->lock();
                 pImage->release();
             }
         }
@@ -729,9 +729,9 @@ void roper::roperTask()
                 /* We set the status to indicate we are in the period delay */
                 setIntegerParam(ADStatus, ADStatusWaiting);
                 callParamCallbacks();
-                epicsMutexUnlock(this->mutexId);
+                this->unlock();
                 status = epicsEventWaitWithTimeout(this->stopEventId, delay);
-                epicsMutexLock(this->mutexId);
+                this->lock();
             }
         }
     }
