@@ -37,7 +37,7 @@
 #include "CDocFile40.h"
 #include "CROIRect0.h"
 
-/* The following macro initializes COM for the default COINIT_MULTITHREADED model 
+/** The following macro initializes COM for the default COINIT_MULTITHREADED model 
  * This needs to be done in each thread that can call the COM interfaces 
  * These threads are:
  *   - The thread that runs when the roper object is created (typically from st.cmd)
@@ -46,7 +46,7 @@
 #define INITIALIZE_COM CoInitializeEx(NULL, 0)
 #define ERROR_MESSAGE_SIZE 256
 #define MAX_COMMENT_SIZE 80
-/* The polling interval when checking to see if acquisition is complete */
+/** The polling interval when checking to see if acquisition is complete */
 #define ROPER_POLL_TIME .01
 
 static const char *controllerNames[] = {
@@ -77,15 +77,13 @@ static const char *controllerNames[] = {
     "ST133_2MHZ"
 };
 
-typedef enum
-{
+typedef enum {
     RoperImageNormal,
     RoperImageContinuous,
     RoperImageFocus
 } RoperImageMode_t;
 
-typedef enum
-{
+typedef enum {
     RoperShutterNormal,
     RoperShutterClosed,
     RoperShutterOpen
@@ -95,6 +93,9 @@ static int numControllerNames = sizeof(controllerNames)/sizeof(controllerNames[0
 
 static const char *driverName = "drvRoper";
 
+/** Driver for Roper (Princeton Instrument and Photometrics) cameras using the COM interface
+  * to WinView or WinSpec. 
+  * Version 2.5.22 or later of those programs is required. */
 class roper : public ADDriver {
 public:
     roper(const char *portName,
@@ -108,8 +109,9 @@ public:
     virtual asynStatus drvUserCreate(asynUser *pasynUser, const char *drvInfo, 
                                      const char **pptypeName, size_t *psize);
     void report(FILE *fp, int details);
-                                        
-    void roperTask();
+    void roperTask();  /* This should be private but is called from C, must be public */
+         
+private:                               
     asynStatus setROI();
     NDArray *getData();
     asynStatus getStatus();
@@ -127,8 +129,7 @@ public:
     char errorMessage[ERROR_MESSAGE_SIZE];
 };
 
-/* If we have any private driver parameters they begin with ADFirstDriverParam and should end
-   with ADLastDriverParam, which is used for setting the size of the parameter library table */
+/** Driver-specific parameters for the Roper driver */
 typedef enum {
     RoperShutterMode
         = ADFirstDriverParam,
@@ -556,9 +557,9 @@ static void roperTaskC(void *drvPvt)
     pPvt->roperTask();
 }
 
+/** This thread computes new image data and does the callbacks to send it to higher layers */
 void roper::roperTask()
 {
-    /* This thread computes new image data and does the callbacks to send it to higher layers */
     int status = asynSuccess;
     int imageCounter;
     int numAcquisitions, numAcquisitionsCounter;
@@ -738,6 +739,11 @@ void roper::roperTask()
 }
 
 
+/** Called when asyn clients call pasynInt32->write().
+  * This function performs actions for some parameters, including ADAcquire, ADBinX, etc.
+  * For all parameters it sets the value in the parameter library and calls any registered callbacks..
+  * \param[in] pasynUser pasynUser structure that encodes the reason and address.
+  * \param[in] value Value to write. */
 asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
 {
     int function = pasynUser->reason;
@@ -858,6 +864,11 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
 }
 
 
+/** Called when asyn clients call pasynFloat64->write().
+  * This function performs actions for some parameters, including ADAcquireTime, ADGain, etc.
+  * For all parameters it sets the value in the parameter library and calls any registered callbacks..
+  * \param[in] pasynUser pasynUser structure that encodes the reason and address.
+  * \param[in] value Value to write. */
 asynStatus roper::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
 {
     int function = pasynUser->reason;
@@ -919,14 +930,22 @@ asynStatus roper::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
 }
 
 
-/* asynDrvUser routines */
+/** Sets pasynUser->reason to one of the enum values for the parameters defined for
+  * this class if the drvInfo field matches one the strings defined for it.
+  * If the parameter is not recognized by this class then calls ADDriver::drvUserCreate.
+  * Uses asynPortDriver::drvUserCreateParam.
+  * \param[in] pasynUser pasynUser structure that driver modifies
+  * \param[in] drvInfo String containing information about what driver function is being referenced
+  * \param[out] pptypeName Location in which driver puts a copy of drvInfo.
+  * \param[out] psize Location where driver puts size of param 
+  * \return Returns asynSuccess if a matching string was found, asynError if not found. */
 asynStatus roper::drvUserCreate(asynUser *pasynUser,
-                                      const char *drvInfo, 
-                                      const char **pptypeName, size_t *psize)
+                                       const char *drvInfo, 
+                                       const char **pptypeName, size_t *psize)
 {
     asynStatus status;
-    int param;
     const char *functionName = "drvUserCreate";
+    
     HRESULT hr;
 
     /* Initialize the COM system for this thread */
@@ -940,29 +959,20 @@ asynStatus roper::drvUserCreate(asynUser *pasynUser,
             driverName, functionName);
     }
 
-    /* See if this is one of our standard parameters */
-    status = findParam(RoperParamString, NUM_ROPER_PARAMS, 
-                       drvInfo, &param);
-                                
-    if (status == asynSuccess) {
-        pasynUser->reason = param;
-        if (pptypeName) {
-            *pptypeName = epicsStrDup(drvInfo);
-        }
-        if (psize) {
-            *psize = sizeof(param);
-        }
-        asynPrint(pasynUser, ASYN_TRACE_FLOW,
-                  "%s:%s: drvInfo=%s, param=%d\n", 
-                  driverName, functionName, drvInfo, param);
-        return(asynSuccess);
-    }
-    
-    /* If not, then see if it is a base class parameter */
-    status = ADDriver::drvUserCreate(pasynUser, drvInfo, pptypeName, psize);
-    return(status);  
+    status = this->drvUserCreateParam(pasynUser, drvInfo, pptypeName, psize, 
+                                      RoperParamString, NUM_ROPER_PARAMS);
+
+    /* If not, then call the base class method, see if it is known there */
+    if (status) status = ADDriver::drvUserCreate(pasynUser, drvInfo, pptypeName, psize);
+    return(status);
 }
     
+/** Report status of the driver.
+  * Prints details about the driver if details>0.
+  * It then calls the ADDriver::report() method.
+  * \param[in] fp File pointed passed by caller where the output is written to.
+  * \param[in] details If >0 then driver details are printed.
+  */
 void roper::report(FILE *fp, int details)
 {
 
@@ -987,6 +997,17 @@ extern "C" int roperConfig(const char *portName,
     return(asynSuccess);
 }
 
+/** Constructor for Roper driver; most parameters are simply passed to ADDriver::ADDriver.
+  * After calling the base class constructor this method creates a thread to collect the detector data, 
+  * and sets reasonable default values for all of the parameters defined in this class and ADStdDriverParams.h.
+  * \param[in] portName The name of the asyn port driver to be created.
+  * \param[in] maxBuffers The maximum number of NDArray buffers that the NDArrayPool for this driver is 
+  *            allowed to allocate. Set this to -1 to allow an unlimited number of buffers.
+  * \param[in] maxMemory The maximum amount of memory that the NDArrayPool for this driver is 
+  *            allowed to allocate. Set this to -1 to allow an unlimited amount of memory.
+  * \param[in] priority The thread priority for the asyn port driver thread if ASYN_CANBLOCK is set in asynFlags.
+  * \param[in] stackSize The stack size for the asyn port driver thread if ASYN_CANBLOCK is set in asynFlags.
+  */
 roper::roper(const char *portName,
              int maxBuffers, size_t maxMemory,
              int priority, int stackSize)
@@ -1113,6 +1134,4 @@ roper::roper(const char *portName,
             driverName, functionName);
         return;
     }
-
-    
 }
