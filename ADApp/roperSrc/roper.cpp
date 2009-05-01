@@ -132,7 +132,7 @@ private:
 /** Driver-specific parameters for the Roper driver */
 typedef enum {
     RoperShutterMode
-        = ADFirstDriverParam,
+        = ADLastStdParam,
     RoperNumAcquisitions,
     RoperNumAcquisitionsCounter,
     RoperAutoDataType,
@@ -183,7 +183,7 @@ asynStatus roper::saveFile()
     const char *functionName="saveFile";
     
     VariantInit(&varArg);
-    getIntegerParam(ADFileFormat, &docType);
+    getIntegerParam(NDFileFormat, &docType);
     this->createFileName(MAX_FILENAME_LEN, fullFileName);
 
     try {
@@ -223,7 +223,7 @@ asynStatus roper::saveFile()
         SysFreeString(bstr);
 
         this->pDocFile->SaveAs(fullFileName, docType);
-        setStringParam(ADFullFileName, fullFileName);
+        setStringParam(NDFullFileName, fullFileName);
     }
     catch(CException *pEx) {
         pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
@@ -316,10 +316,10 @@ NDArray *roper::getData()
         memcpy(pArray->pData, pVarData, arrayInfo.totalBytes);
         SafeArrayUnaccessData(pData);
         SafeArrayDestroy(pData);
-        setIntegerParam(ADImageSize, arrayInfo.totalBytes);
-        setIntegerParam(ADImageSizeX, dims[0]);
-        setIntegerParam(ADImageSizeY, dims[1]);
-        setIntegerParam(ADDataType, dataType);
+        setIntegerParam(NDArraySize, arrayInfo.totalBytes);
+        setIntegerParam(NDArraySizeX, dims[0]);
+        setIntegerParam(NDArraySizeY, dims[1]);
+        setIntegerParam(NDDataType, dataType);
     }
     catch(CException *pEx) {
         pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
@@ -669,13 +669,13 @@ void roper::roperTask()
         }
         
         /* Get the current parameters */
-        getIntegerParam(ADAutoSave,         &autoSave);
-        getIntegerParam(ADImageCounter,     &imageCounter);
+        getIntegerParam(NDAutoSave,         &autoSave);
+        getIntegerParam(NDArrayCounter,     &imageCounter);
         getIntegerParam(RoperNumAcquisitionsCounter, &numAcquisitionsCounter);
-        getIntegerParam(ADArrayCallbacks,   &arrayCallbacks);
+        getIntegerParam(NDArrayCallbacks,   &arrayCallbacks);
         imageCounter++;
         numAcquisitionsCounter++;
-        setIntegerParam(ADImageCounter, imageCounter);
+        setIntegerParam(NDArrayCounter, imageCounter);
         setIntegerParam(RoperNumAcquisitionsCounter, numAcquisitionsCounter);
         
         if (arrayCallbacks) {
@@ -789,7 +789,7 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
         case ADSizeY:
             this->setROI();
             break;
-        case ADDataType:
+        case NDDataType:
             convertDataType((NDDataType_t) value, &roperDataType);
             varArg.lVal = roperDataType;
             this->pExpSetup->SetParam(EXP_DATATYPE, &varArg);
@@ -806,11 +806,11 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
         case ADReverseY:
             this->pExpSetup->SetParam(EXP_FLIP, &varArg);
             break;
-        case ADWriteFile:
+        case NDWriteFile:
             /* Call the callbacks so the busy state is visible while file is being saved */
             callParamCallbacks();
             status = this->saveFile();
-            setIntegerParam(ADWriteFile, 0);
+            setIntegerParam(NDWriteFile, 0);
             break;
         case ADTriggerMode:
             this->pExpSetup->SetParam(EXP_TIMING_MODE, &varArg);
@@ -823,10 +823,10 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
             needReadStatus = 0;
             break;
         case RoperAutoDataType:
-            getIntegerParam(ADDataType, &dataType);
+            getIntegerParam(NDDataType, &dataType);
             this->pExpSetup->SetParam(EXP_AUTOD, &varArg);
             if (value == 0) { /* Not auto data type, re-send data type */
-                getIntegerParam(ADDataType, &dataType);
+                getIntegerParam(NDDataType, &dataType);
                 convertDataType((NDDataType_t)dataType, &roperDataType);
                 varArg.lVal = roperDataType;
                 this->pExpSetup->SetParam(EXP_DATATYPE, &varArg);
@@ -981,7 +981,7 @@ void roper::report(FILE *fp, int details)
         int nx, ny, dataType;
         getIntegerParam(ADSizeX, &nx);
         getIntegerParam(ADSizeY, &ny);
-        getIntegerParam(ADDataType, &dataType);
+        getIntegerParam(NDDataType, &dataType);
         fprintf(fp, "  NX, NY:            %d  %d\n", nx, ny);
         fprintf(fp, "  Data type:         %d\n", dataType);
     }
@@ -1073,10 +1073,10 @@ roper::roper(const char *portName,
             pDocFile->AttachDispatch(pDocFileDispatch);
             getData();
         } else {
-            setIntegerParam(ADImageSizeX, 0);
-            setIntegerParam(ADImageSizeY, 0);
-            setIntegerParam(ADImageSize, 0);
-            setIntegerParam(ADDataType, NDUInt16);
+            setIntegerParam(NDArraySizeX, 0);
+            setIntegerParam(NDArraySizeY, 0);
+            setIntegerParam(NDArraySize, 0);
+            setIntegerParam(NDDataType, NDUInt16);
         }
     }
     catch(CException *pEx) {
