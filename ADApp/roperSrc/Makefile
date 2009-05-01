@@ -18,11 +18,12 @@ LIB_LIBS += $(EPICS_BASE_IOC_LIBS)
 
 #==================================
 PROD_IOC_WIN32 += comTest1
-comTest1_SYS_LIBS += ole32 oleaut32 nafxcw
+#comTest1_SYS_LIBS += ole32 oleaut32 nafxcw
+comTest1_SYS_LIBS += ole32 oleaut32
 PROD_IOC_WIN32 += comTest2
-comTest2_SYS_LIBS += ole32 oleaut32 nafxcw
+comTest2_SYS_LIBS += ole32 oleaut32
 PROD_IOC_WIN32 += comTest3
-comTest3_SYS_LIBS += ole32 oleaut32 nafxcw
+comTest3_SYS_LIBS += ole32 oleaut32
 
 PROD_IOC_WIN32 += roperApp
 #PROD_IOC_cygwin32 += roperApp
