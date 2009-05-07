@@ -25,12 +25,11 @@
 #include <epicsStdio.h>
 #include <epicsMutex.h>
 #include <cantProceed.h>
+#include <iocsh.h>
+#include <epicsExport.h>
 
-#include "ADStdDriverParams.h"
-#include "NDArray.h"
 #include "ADDriver.h"
 
-#include "drvRoper.h"
 #include "stdafx.h"
 #include "CWinx32App20.h"
 #include "CExpSetup20.h"
@@ -1135,3 +1134,29 @@ roper::roper(const char *portName,
         return;
     }
 }
+
+/* Code for iocsh registration */
+static const iocshArg roperConfigArg0 = {"Port name", iocshArgString};
+static const iocshArg roperConfigArg1 = {"maxBuffers", iocshArgInt};
+static const iocshArg roperConfigArg2 = {"maxMemory", iocshArgInt};
+static const iocshArg roperConfigArg3 = {"priority", iocshArgInt};
+static const iocshArg roperConfigArg4 = {"stackSize", iocshArgInt};
+static const iocshArg * const roperConfigArgs[] =  {&roperConfigArg0,
+                                                    &roperConfigArg1,
+                                                    &roperConfigArg2,
+                                                    &roperConfigArg3,
+                                                    &roperConfigArg4};
+static const iocshFuncDef configRoper = {"roperConfig", 5, roperConfigArgs};
+static void configRoperCallFunc(const iocshArgBuf *args)
+{
+    roperConfig(args[0].sval, args[1].ival, args[2].ival,
+                args[3].ival, args[4].ival);
+}
+
+
+static void roperRegister(void)
+{
+    iocshRegister(&configRoper, configRoperCallFunc);
+}
+
+epicsExportRegistrar(roperRegister);

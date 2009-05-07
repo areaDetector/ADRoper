@@ -10,7 +10,6 @@ include $(TOP)/configure/CONFIG
 LIBRARY_IOC_WIN32 = roper
 #LIBRARY_IOC_cygwin32 = roper
 LIB_SRCS += roper.cpp
-LIB_SRCS += drvRoperEpics.c
 LIB_LIBS += NDPlugin ADBase netCDF
 LIB_LIBS += calc busy sscan autosave 
 LIB_LIBS += asyn
