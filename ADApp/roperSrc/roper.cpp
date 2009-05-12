@@ -1159,4 +1159,6 @@ static void roperRegister(void)
     iocshRegister(&configRoper, configRoperCallFunc);
 }
 
+extern "C" {
 epicsExportRegistrar(roperRegister);
+}
