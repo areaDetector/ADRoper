@@ -684,6 +684,8 @@ void roper::roperTask()
                 /* Put the frame number and time stamp into the buffer */
                 pImage->uniqueId = imageCounter;
                 pImage->timeStamp = startTime.secPastEpoch + startTime.nsec / 1.e9;
+                /* Get any attributes that have been defined for this driver */        
+                this->getAttributes(pImage);
                 /* Call the NDArray callback */
                 /* Must release the lock here, or we can get into a deadlock, because we can
                  * block on the plugin lock, and the plugin can be calling us */
@@ -833,6 +835,8 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
             break;
         default:
             needReadStatus = 0;
+            /* If this parameter belongs to a base class call its method */
+            if (function < ADLastStdParam) status = ADDriver::writeInt32(pasynUser, value);
             break;
         }
     }
@@ -901,6 +905,8 @@ asynStatus roper::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
             break;
         default:
             needReadStatus = 0;
+            /* If this parameter belongs to a base class call its method */
+            if (function < ADLastStdParam) status = ADDriver::writeFloat64(pasynUser, value);
             break;
         }
     }
