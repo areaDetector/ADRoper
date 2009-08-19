@@ -1004,7 +1004,8 @@ extern "C" int roperConfig(const char *portName,
 
 /** Constructor for Roper driver; most parameters are simply passed to ADDriver::ADDriver.
   * After calling the base class constructor this method creates a thread to collect the detector data, 
-  * and sets reasonable default values for the parameters defined in this class and ADStdDriverParams.h.
+  * and sets reasonable default values for the parameters defined in this class, asynNDArrayDriver and
+  * ADDriver.
   * \param[in] portName The name of the asyn port driver to be created.
   * \param[in] maxBuffers The maximum number of NDArray buffers that the NDArrayPool for this driver is 
   *            allowed to allocate. Set this to -1 to allow an unlimited number of buffers.
