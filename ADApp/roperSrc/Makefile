@@ -4,9 +4,6 @@ include $(TOP)/configure/CONFIG
 #  ADD MACRO DEFINITIONS AFTER THIS LINE
 #=============================
 
-#USR_CFLAGS += 
-#USR_CXXFLAGS +=
-
 LIBRARY_IOC_WIN32 = roper
 #LIBRARY_IOC_cygwin32 = roper
 LIB_SRCS += roper.cpp
@@ -41,7 +38,15 @@ roperApp_LIBS += $(EPICS_BASE_IOC_LIBS)
 
 roperApp_LIBS_WIN32    += libtiff jpeg libNeXus.dll
 roperApp_LIBS_cygwin32 += libtiff jpeg libNeXus.dll
-roperApp_SYS_LIBS      += ole32 oleaut32 nafxcw
+roperApp_SYS_LIBS      += ole32 oleaut32
+# We need to use 2 different versions of the nafxcw library depending on
+# whether this is the normal or debug architecture, otherwise there are link errors.
+ifeq ($(T_A), win32-x86)
+roperApp_SYS_LIBS      += nafxcw
+endif
+ifeq ($(T_A), win32-x86-debug)
+roperApp_SYS_LIBS      += nafxcwd
+endif
 roperApp_SYS_LIBS_cygwin32 += rpc
 
 #=============================
