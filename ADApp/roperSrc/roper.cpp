@@ -158,16 +158,15 @@ static asynParamString_t RoperParamString[] = {
 #define NUM_ROPER_PARAMS (sizeof(RoperParamString)/sizeof(RoperParamString[0]))
 
 /* Convert from a C string to a BSTR.  This must be freed by the caller! */
-BSTR stringToBSTR(char *str, int maxSize)
+BSTR stringToBSTR(char *str)
 {
-    size_t len;
-    OLECHAR *wideTemp;
+    size_t len = strlen(str)+1;
+    OLECHAR *wideTemp = new OLECHAR[len];
     BSTR pOut;
     
-    wideTemp = (OLECHAR*)malloc(maxSize);
-    mbstowcs_s(&len, wideTemp, maxSize, str, maxSize-1);
+    mbstowcs(wideTemp, str, len);
     pOut = SysAllocString(wideTemp);
-    free(wideTemp);
+    delete wideTemp;
     return(pOut);
 }
     
@@ -187,35 +186,35 @@ asynStatus roper::saveFile()
 
     try {
         getStringParam(RoperComment1, MAX_COMMENT_SIZE, comment);
-        bstr = stringToBSTR(comment, MAX_COMMENT_SIZE);
+        bstr = stringToBSTR(comment);
         varArg.vt = VT_BSTR;
         varArg.bstrVal = bstr;
         this->pDocFile->SetParam(DM_USERCOMMENT1, &varArg);
         SysFreeString(bstr);
 
         getStringParam(RoperComment2, MAX_COMMENT_SIZE, comment);
-        bstr = stringToBSTR(comment, MAX_COMMENT_SIZE);
+        bstr = stringToBSTR(comment);
         varArg.vt = VT_BSTR;
         varArg.bstrVal = bstr;
         this->pDocFile->SetParam(DM_USERCOMMENT2, &varArg);
         SysFreeString(bstr);
 
         getStringParam(RoperComment3, MAX_COMMENT_SIZE, comment);
-        bstr = stringToBSTR(comment, MAX_COMMENT_SIZE);
+        bstr = stringToBSTR(comment);
         varArg.vt = VT_BSTR;
         varArg.bstrVal = bstr;
         this->pDocFile->SetParam(DM_USERCOMMENT3, &varArg);
         SysFreeString(bstr);
 
         getStringParam(RoperComment4, MAX_COMMENT_SIZE, comment);
-        bstr = stringToBSTR(comment, MAX_COMMENT_SIZE);
+        bstr = stringToBSTR(comment);
         varArg.vt = VT_BSTR;
         varArg.bstrVal = bstr;
         this->pDocFile->SetParam(DM_USERCOMMENT4, &varArg);
         SysFreeString(bstr);
 
         getStringParam(RoperComment5, MAX_COMMENT_SIZE, comment);
-        bstr = stringToBSTR(comment, MAX_COMMENT_SIZE);
+        bstr = stringToBSTR(comment);
         varArg.vt = VT_BSTR;
         varArg.bstrVal = bstr;
         this->pDocFile->SetParam(DM_USERCOMMENT5, &varArg);
