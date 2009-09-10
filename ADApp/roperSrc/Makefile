@@ -39,8 +39,8 @@ roperApp_LIBS += $(EPICS_BASE_IOC_LIBS)
 roperApp_LIBS_WIN32    += libtiff jpeg libNeXus.dll
 roperApp_LIBS_cygwin32 += libtiff jpeg libNeXus.dll
 roperApp_SYS_LIBS      += ole32 oleaut32
-# We need to use 2 different versions of the nafxcw library depending on
-# whether this is the normal or debug architecture, otherwise there are link errors.
+# If we don't include nafxcw in the link command then VS links the C runtime before
+# MFC and we get errors that operator new and delete are multiply defined.
 ifeq ($(T_A), win32-x86)
 roperApp_SYS_LIBS      += nafxcw
 endif
