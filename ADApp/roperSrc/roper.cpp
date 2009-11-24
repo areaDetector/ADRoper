@@ -88,6 +88,17 @@ typedef enum {
     RoperShutterOpen
 } RoperShutterMode_t;
 
+/** Driver-specific parameters for the Roper driver */
+#define RoperShutterModeString            "ROPER_SHUTTER_MODE"
+#define RoperNumAcquisitionsString        "ROPER_NACQUISITIONS"
+#define RoperNumAcquisitionsCounterString "ROPER_NACQUISITIONS_COUNTER"
+#define RoperAutoDataTypeString           "AUTO_DATA_TYPE"
+#define RoperComment1String               "COMMENT1"
+#define RoperComment2String               "COMMENT2"
+#define RoperComment3String               "COMMENT3"
+#define RoperComment4String               "COMMENT4"
+#define RoperComment5String               "COMMENT5"
+
 static int numControllerNames = sizeof(controllerNames)/sizeof(controllerNames[0]);
 
 static const char *driverName = "drvRoper";
@@ -109,6 +120,19 @@ public:
                                      const char **pptypeName, size_t *psize);
     void report(FILE *fp, int details);
     void roperTask();  /* This should be private but is called from C, must be public */
+
+protected:
+    int RoperShutterMode;
+    #define FIRST_ROPER_PARAM RoperShutterMode
+    int RoperNumAcquisitions;
+    int RoperNumAcquisitionsCounter;
+    int RoperAutoDataType;
+    int RoperComment1;
+    int RoperComment2;
+    int RoperComment3;
+    int RoperComment4;
+    int RoperComment5;
+    #define LAST_ROPER_PARAM RoperComment5
          
 private:                               
     asynStatus setROI();
@@ -128,34 +152,8 @@ private:
     char errorMessage[ERROR_MESSAGE_SIZE];
 };
 
-/** Driver-specific parameters for the Roper driver */
-typedef enum {
-    RoperShutterMode
-        = ADLastStdParam,
-    RoperNumAcquisitions,
-    RoperNumAcquisitionsCounter,
-    RoperAutoDataType,
-    RoperComment1,
-    RoperComment2,
-    RoperComment3,
-    RoperComment4,
-    RoperComment5,
-    ADLastDriverParam
-} RoperParam_t;
 
-static asynParamString_t RoperParamString[] = {
-    {RoperShutterMode,            "ROPER_SHUTTER_MODE"},
-    {RoperNumAcquisitions,        "ROPER_NACQUISITIONS"},
-    {RoperNumAcquisitionsCounter, "ROPER_NACQUISITIONS_COUNTER"},
-    {RoperAutoDataType,           "AUTO_DATA_TYPE"},
-    {RoperComment1,               "COMMENT1"},
-    {RoperComment2,               "COMMENT2"},
-    {RoperComment3,               "COMMENT3"},
-    {RoperComment4,               "COMMENT4"},
-    {RoperComment5,               "COMMENT5"}
-};
-
-#define NUM_ROPER_PARAMS (sizeof(RoperParamString)/sizeof(RoperParamString[0]))
+#define NUM_ROPER_PARAMS (&LAST_ROPER_PARAM - &FIRST_ROPER_PARAM + 1)
 
 /* Convert from a C string to a BSTR.  This must be freed by the caller! */
 BSTR stringToBSTR(char *str)
@@ -768,8 +766,7 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
     status = setIntegerParam(function, value);
 
     try {
-        switch (function) {
-        case ADAcquire:
+        if (function == ADAcquire) {
             if (value && !currentlyAcquiring) {
                 /* Send an event to wake up the Roper task.  
                  * It won't actually start generating new images until we release the lock below */
@@ -780,49 +777,38 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
                 /* Send the stop event */
                 epicsEventSignal(this->stopEventId);
             }
-            break;
-        case ADBinX:
-        case ADBinY:
-        case ADMinX:
-        case ADMinY:
-        case ADSizeX:
-        case ADSizeY:
+        } else if ( (function == ADBinX) ||
+                    (function == ADBinY) ||
+                    (function == ADMinX) ||
+                    (function == ADMinY) ||
+                    (function == ADSizeX) ||
+                    (function == ADSizeY)) {
             this->setROI();
-            break;
-        case NDDataType:
+        } else if (function == NDDataType) {
             convertDataType((NDDataType_t) value, &roperDataType);
             varArg.lVal = roperDataType;
             this->pExpSetup->SetParam(EXP_DATATYPE, &varArg);
-            break;
-        case ADNumImages:
+        } else if (function == ADNumImages) {
             this->pExpSetup->SetParam(EXP_SEQUENTS, &varArg);
-            break;
-        case ADNumExposures:
+        } else if (function == ADNumExposures) {
             this->pExpSetup->SetParam(EXP_ACCUMS, &varArg);
-            break;
-        case ADReverseX:
+        } else if (function == ADReverseX) {
             this->pExpSetup->SetParam(EXP_REVERSE, &varArg);
-            break;
-        case ADReverseY:
+        } else if (function == ADReverseY) {
             this->pExpSetup->SetParam(EXP_FLIP, &varArg);
-            break;
-        case NDWriteFile:
+        } else if (function == NDWriteFile) {
             /* Call the callbacks so the busy state is visible while file is being saved */
             callParamCallbacks();
             status = this->saveFile();
             setIntegerParam(NDWriteFile, 0);
-            break;
-        case ADTriggerMode:
+        } else if (function == ADTriggerMode) {
             this->pExpSetup->SetParam(EXP_TIMING_MODE, &varArg);
-            break;
-        case RoperShutterMode:
+        } else if (function == RoperShutterMode) {
             this->pExpSetup->SetParam(EXP_SHUTTER_CONTROL, &varArg);
-            break;
-        case ADShutterControl:
+        } else if (function == ADShutterControl) {
             setShutter(value);
             needReadStatus = 0;
-            break;
-        case RoperAutoDataType:
+        } else if (function == RoperAutoDataType) {
             getIntegerParam(NDDataType, &dataType);
             this->pExpSetup->SetParam(EXP_AUTOD, &varArg);
             if (value == 0) { /* Not auto data type, re-send data type */
@@ -831,12 +817,10 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
                 varArg.lVal = roperDataType;
                 this->pExpSetup->SetParam(EXP_DATATYPE, &varArg);
             }
-            break;
-        default:
+        } else {
             needReadStatus = 0;
             /* If this parameter belongs to a base class call its method */
-            if (function < ADLastStdParam) status = ADDriver::writeInt32(pasynUser, value);
-            break;
+            if (function < FIRST_ROPER_PARAM) status = ADDriver::writeInt32(pasynUser, value);
         }
     }
     catch(CException *pEx) {
@@ -890,23 +874,18 @@ asynStatus roper::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
 
     /* Changing any of the following parameters requires recomputing the base image */
     try {
-        switch (function) {
-        case ADAcquireTime:
+        if (function == ADAcquireTime) {
             this->pExpSetup->SetParam(EXP_EXPOSURE, &varArg);
-            break;
-        case ADTemperature:
+        } else if (function == ADTemperature) {
             this->pExpSetup->SetParam(EXP_TEMPERATURE, &varArg);
-            break;
-        case ADGain:
+        } else if (function == ADGain) {
             varArg.vt = VT_I4;
             varArg.lVal = (int)value;
             this->pExpSetup->SetParam(EXP_GAIN, &varArg);
-            break;
-        default:
+        } else {
             needReadStatus = 0;
             /* If this parameter belongs to a base class call its method */
-            if (function < ADLastStdParam) status = ADDriver::writeFloat64(pasynUser, value);
-            break;
+            if (function < FIRST_ROPER_PARAM) status = ADDriver::writeFloat64(pasynUser, value);
         }
     }
     catch(CException *pEx) {
@@ -963,11 +942,8 @@ asynStatus roper::drvUserCreate(asynUser *pasynUser,
             driverName, functionName);
     }
 
-    status = this->drvUserCreateParam(pasynUser, drvInfo, pptypeName, psize, 
-                                      RoperParamString, NUM_ROPER_PARAMS);
-
-    /* If not, then call the base class method, see if it is known there */
-    if (status) status = ADDriver::drvUserCreate(pasynUser, drvInfo, pptypeName, psize);
+     /* Call the base class method */
+    status = ADDriver::drvUserCreate(pasynUser, drvInfo, pptypeName, psize);
     return(status);
 }
     
@@ -1017,7 +993,7 @@ roper::roper(const char *portName,
              int maxBuffers, size_t maxMemory,
              int priority, int stackSize)
 
-    : ADDriver(portName, 1, ADLastDriverParam, maxBuffers, maxMemory, 
+    : ADDriver(portName, 1, NUM_ROPER_PARAMS, maxBuffers, maxMemory, 
                0, 0,             /* No interfaces beyond those set in ADDriver.cpp */
                ASYN_CANBLOCK, 1, /* ASYN_CANBLOCK=1, ASYN_MULTIDEVICE=0, autoConnect=1 */
                priority, stackSize)
@@ -1031,6 +1007,16 @@ roper::roper(const char *portName,
     const char *controllerName;
     int controllerNum;
     IDispatch *pDocFileDispatch;
+
+    addParam(RoperShutterModeString,            &RoperShutterMode);
+    addParam(RoperNumAcquisitionsString,        &RoperNumAcquisitions);
+    addParam(RoperNumAcquisitionsCounterString, &RoperNumAcquisitionsCounter);
+    addParam(RoperAutoDataTypeString,           &RoperAutoDataType);
+    addParam(RoperComment1String,               &RoperComment1);
+    addParam(RoperComment2String,               &RoperComment2);
+    addParam(RoperComment3String,               &RoperComment3);
+    addParam(RoperComment4String,               &RoperComment4);
+    addParam(RoperComment5String,               &RoperComment5);
  
     /* Initialize the COM system for this thread */
     hr = INITIALIZE_COM;
