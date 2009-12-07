@@ -916,7 +916,6 @@ asynStatus roper::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
 /** Sets pasynUser->reason to one of the enum values for the parameters defined for
   * this class if the drvInfo field matches one the strings defined for it.
   * If the parameter is not recognized by this class then calls ADDriver::drvUserCreate.
-  * Uses asynPortDriver::drvUserCreateParam.
   * \param[in] pasynUser pasynUser structure that driver modifies
   * \param[in] drvInfo String containing information about what driver function is being referenced
   * \param[out] pptypeName Location in which driver puts a copy of drvInfo.
