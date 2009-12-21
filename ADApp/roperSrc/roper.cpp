@@ -1007,15 +1007,15 @@ roper::roper(const char *portName,
     int controllerNum;
     IDispatch *pDocFileDispatch;
 
-    addParam(RoperShutterModeString,            &RoperShutterMode);
-    addParam(RoperNumAcquisitionsString,        &RoperNumAcquisitions);
-    addParam(RoperNumAcquisitionsCounterString, &RoperNumAcquisitionsCounter);
-    addParam(RoperAutoDataTypeString,           &RoperAutoDataType);
-    addParam(RoperComment1String,               &RoperComment1);
-    addParam(RoperComment2String,               &RoperComment2);
-    addParam(RoperComment3String,               &RoperComment3);
-    addParam(RoperComment4String,               &RoperComment4);
-    addParam(RoperComment5String,               &RoperComment5);
+    createParam(RoperShutterModeString,            asynParamInt32,   &RoperShutterMode);
+    createParam(RoperNumAcquisitionsString,        asynParamInt32,   &RoperNumAcquisitions);
+    createParam(RoperNumAcquisitionsCounterString, asynParamInt32,   &RoperNumAcquisitionsCounter);
+    createParam(RoperAutoDataTypeString,           asynParamInt32,   &RoperAutoDataType);
+    createParam(RoperComment1String,               asynParamOctet,   &RoperComment1);
+    createParam(RoperComment2String,               asynParamOctet,   &RoperComment2);
+    createParam(RoperComment3String,               asynParamOctet,   &RoperComment3);
+    createParam(RoperComment4String,               asynParamOctet,   &RoperComment4);
+    createParam(RoperComment5String,               asynParamOctet,   &RoperComment5);
  
     /* Initialize the COM system for this thread */
     hr = INITIALIZE_COM;
