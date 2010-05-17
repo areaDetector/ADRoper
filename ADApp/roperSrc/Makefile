@@ -36,7 +36,7 @@ roperApp_LIBS += roper
 roperApp_LIBS += NDPlugin ADBase netCDF
 roperApp_LIBS_Linux += PvAPI ImageLib
 roperApp_LIBS_WIN32 += PvAPI ImageLib
-roperApp_LIBS += calc busy sscan autosave 
+roperApp_LIBS += calc busy sscan autosave mca
 roperApp_LIBS += asyn
 roperApp_LIBS += $(EPICS_BASE_IOC_LIBS)
 
