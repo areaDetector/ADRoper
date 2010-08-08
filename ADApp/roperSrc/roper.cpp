@@ -118,7 +118,7 @@ public:
     virtual void setShutter(int open);
     virtual asynStatus drvUserCreate(asynUser *pasynUser, const char *drvInfo, 
                                      const char **pptypeName, size_t *psize);
-    void report(FILE *fp, int details);
+    virtual void report(FILE *fp, int details);
     void roperTask();  /* This should be private but is called from C, must be public */
 
 protected:
@@ -805,9 +805,6 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
             this->pExpSetup->SetParam(EXP_TIMING_MODE, &varArg);
         } else if (function == RoperShutterMode) {
             this->pExpSetup->SetParam(EXP_SHUTTER_CONTROL, &varArg);
-        } else if (function == ADShutterControl) {
-            setShutter(value);
-            needReadStatus = 0;
         } else if (function == RoperAutoDataType) {
             getIntegerParam(NDDataType, &dataType);
             this->pExpSetup->SetParam(EXP_AUTOD, &varArg);
