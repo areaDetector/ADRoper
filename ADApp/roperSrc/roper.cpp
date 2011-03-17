@@ -999,6 +999,7 @@ roper::roper(const char *portName,
     const char *functionName = "roper";
     VARIANT varResult;
     HRESULT hr;
+    COleException COleExcept;
     short result;
     const char *controllerName;
     int controllerNum;
@@ -1029,19 +1030,22 @@ roper::roper(const char *portName,
     this->pROIRect   = new(CROIRect0);
 
     /* Connect to the WinX32App and ExpSetup COM objects */
-    if (!pWinx32App->CreateDispatch("WinX32.Winx32App.2")) {
-        printf("%s:%s: error creating WinX32App COM object\n",
-            driverName, functionName);
+    if (!pWinx32App->CreateDispatch("WinX32.Winx32App.2", &COleExcept)) {
+        COleExcept.GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
+        printf("%s:%s: error creating WinX32App COM object = %s\n",
+            driverName, functionName, this->errorMessage);
         return;
     }
-    if (!pExpSetup->CreateDispatch("WinX32.ExpSetup.2")) {
-        printf("%s:%s: error creating ExpSetup COM object\n",
-            driverName, functionName);
+    if (!pExpSetup->CreateDispatch("WinX32.ExpSetup.2", &COleExcept)) {
+        COleExcept.GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
+        printf("%s:%s: error creating ExpSetup COM object = %s\n",
+            driverName, functionName, this->errorMessage);
         return;
     }
-    if (!pROIRect->CreateDispatch("WinX32.ROIRect")) {
-        printf("%s:%s: error creating ROIRect COM object\n",
-            driverName, functionName);
+    if (!pROIRect->CreateDispatch("WinX32.ROIRect", &COleExcept)) {
+        COleExcept.GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
+        printf("%s:%s: error creating ROIRect COM object = %s\n",
+            driverName, functionName, this->errorMessage);
         return;
     }
 
