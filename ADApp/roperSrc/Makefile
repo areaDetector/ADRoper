@@ -4,17 +4,18 @@ include $(TOP)/configure/CONFIG
 #  ADD MACRO DEFINITIONS AFTER THIS LINE
 #=============================
 
-LIBRARY_IOC_WIN32 = roper
+ifeq (win32-x86, $(findstring $(T_A), win32-x86))
+LIBRARY_IOC = roper
 LIB_SRCS += roper.cpp
-
-#PROD_IOC_WIN32 += comTest1
+PROD_IOC += roperApp
+#PROD_IOC += comTest1
 #comTest1_SYS_LIBS += ole32 oleaut32
-#PROD_IOC_WIN32 += comTest2
+#PROD_IOC += comTest2
 #comTest2_SYS_LIBS += ole32 oleaut32
-#PROD_IOC_WIN32 += comTest3
+#PROD_IOC += comTest3
 #comTest3_SYS_LIBS += ole32 oleaut32
+endif
 
-PROD_IOC_WIN32 += roperApp
 
 # <name>.dbd will be created from <name>Include.dbd
 DBD += roperApp.dbd
