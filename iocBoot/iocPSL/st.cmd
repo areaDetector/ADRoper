@@ -28,7 +28,10 @@ asynSetTraceIOMask("PSLServer",0,2)
 asynOctetConnect PSLServer PSLServer 0 10
 asynOctetWriteRead PSLServer "Open;VHR11"
 
-PSLConfig("$(PORT)", "PSLServer", -1, -1)
+# PSLConfig(const char *portName, const char *serverPort, 
+#          int maxBuffers, size_t maxMemory,
+#          int priority, int stackSize)
+PSLConfig("$(PORT)", "PSLServer", 0, 0)
 asynSetTraceIOMask("$(PORT)",0,2)
 #asynSetTraceMask("$(PORT)",0,9)
 
@@ -37,7 +40,7 @@ dbLoadRecords("$(AREA_DETECTOR)/ADApp/Db/NDFile.template","P=$(PREFIX),R=cam1:,P
 dbLoadRecords("$(AREA_DETECTOR)/ADApp/Db/PSL.template",   "P=$(PREFIX),R=cam1:,PORT=$(PORT),ADDR=0,TIMEOUT=1")
 
 # Create a standard arrays plugin
-NDStdArraysConfigure("Image1", 5, 0, "$(PORT)", 0, -1)
+NDStdArraysConfigure("Image1", 5, 0, "$(PORT)", 0, 0)
 dbLoadRecords("$(AREA_DETECTOR)/ADApp/Db/NDPluginBase.template","P=$(PREFIX),R=image1:,PORT=Image1,ADDR=0,TIMEOUT=1,NDARRAY_PORT=$(PORT),NDARRAY_ADDR=0")
 # Make NELEMENTS in the following be a little bigger than 4007*2670
 dbLoadRecords("$(AREA_DETECTOR)/ADApp/Db/NDStdArrays.template", "P=$(PREFIX),R=image1:,PORT=Image1,ADDR=0,TIMEOUT=1,TYPE=Int16,FTVL=SHORT,NELEMENTS=11000000")
