@@ -153,7 +153,7 @@ private:
 };
 
 
-#define NUM_ROPER_PARAMS (&LAST_ROPER_PARAM - &FIRST_ROPER_PARAM + 1)
+#define NUM_ROPER_PARAMS ((int)(&LAST_ROPER_PARAM - &FIRST_ROPER_PARAM + 1))
 
 /* Convert from a C string to a BSTR.  This must be freed by the caller! */
 BSTR stringToBSTR(char *str)
