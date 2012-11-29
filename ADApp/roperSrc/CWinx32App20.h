@@ -1,5 +1,14 @@
 // Machine generated IDispatch wrapper class(es) created with Add Class from Typelib Wizard
 
+// Undefine min and max to eliminate compiler warnings because these are refined in WinView.exe
+#ifdef min
+#undef min
+#endif
+
+#ifdef max
+#undef max
+#endif
+
 #import "C:\\Program Files\\PI Acton\\WinView\\Winview.exe" no_namespace
 // CWinx32App20 wrapper class
 
