@@ -7,7 +7,8 @@ include $(TOP)/configure/CONFIG
 ifeq (win32-x86, $(findstring $(T_A), win32-x86))
 LIBRARY_IOC = roper
 LIB_SRCS += roper.cpp
-PROD_IOC += roperApp
+PROD_NAME += roperApp
+PROD_IOC += $(PROD_NAME)
 #PROD_IOC += comTest1
 #comTest1_SYS_LIBS += ole32 oleaut32
 #PROD_IOC += comTest2
@@ -18,7 +19,8 @@ endif
 
 
 # <name>.dbd will be created from <name>Include.dbd
-DBD += roperApp.dbd
+DBD += $(PROD_NAME).dbd
+$(PROD_NAME)_DBD += roperSupport.dbd
 DBD += roperSupport.dbd
 
 # <name>_registerRecordDeviceDriver.cpp will be created from <name>.dbd
