@@ -4,10 +4,10 @@ include $(TOP)/configure/CONFIG
 #  ADD MACRO DEFINITIONS AFTER THIS LINE
 #=============================
 
+PROD_NAME = roperApp
 ifeq (win32-x86, $(findstring $(T_A), win32-x86))
 LIBRARY_IOC = roper
 LIB_SRCS += roper.cpp
-PROD_NAME = roperApp
 PROD_IOC += $(PROD_NAME)
 #PROD_IOC += comTest1
 #comTest1_SYS_LIBS += ole32 oleaut32
