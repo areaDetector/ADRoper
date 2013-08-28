@@ -26,7 +26,6 @@
 #include <epicsMutex.h>
 #include <cantProceed.h>
 #include <iocsh.h>
-#include <epicsExport.h>
 
 #include "ADDriver.h"
 
@@ -35,6 +34,8 @@
 #include "CExpSetup20.h"
 #include "CDocFile40.h"
 #include "CROIRect0.h"
+
+#include <epicsExport.h>
 
 /** The following macro initializes COM for the default COINIT_MULTITHREADED model 
  * This needs to be done in each thread that can call the COM interfaces 
