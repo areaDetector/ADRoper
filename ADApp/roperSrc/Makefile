@@ -5,9 +5,13 @@ include $(TOP)/configure/CONFIG
 
 #======== DETECTOR LIBRARY ==============
 
-ifeq (win32-x86, $(findstring $(T_A), win32-x86))
+ifeq (win32-x86, $(findstring win32-x86, $(T_A)))
 LIBRARY_IOC = roper
 LIB_SRCS += roper.cpp
+endif
+
+ifeq ($(STATIC_BUILD), NO)
+USR_CXXFLAGS += -D_AFXDLL
 endif
 
 DBD += roperSupport.dbd
@@ -16,7 +20,7 @@ DBD += roperSupport.dbd
 
 ifeq ($(BUILD_APPS), YES)
 PROD_NAME = roperApp
-ifeq (win32-x86, $(findstring $(T_A), win32-x86))
+ifeq (win32-x86, $(findstring win32-x86, $(T_A)))
 PROD_IOC  += $(PROD_NAME)
 #PROD_IOC += comTest1
 #comTest1_SYS_LIBS += ole32 oleaut32
@@ -39,11 +43,10 @@ PROD_SYS_LIBS      += ole32 oleaut32
 
 # If we don't include nafxcw in the link command then VS links the C runtime before
 # MFC and we get errors that operator new and delete are multiply defined.
-ifeq ($(T_A), win32-x86)
-PROD_SYS_LIBS      += nafxcw
-endif
-ifeq ($(T_A), win32-x86-debug)
+ifeq (debug, $(findstring debug, $(T_A)))
 PROD_SYS_LIBS      += nafxcwd
+else
+PROD_SYS_LIBS      += nafxcw
 endif
 
 include $(TOP)/ADApp/commonDriverMakefile
