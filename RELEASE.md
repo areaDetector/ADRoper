@@ -33,3 +33,8 @@ R1-9-1 and earlier
 ------------------
 Release notes are part of the
 [areaDetector Release Notes](http://cars.uchicago.edu/software/epics/areaDetectorReleaseNotes.html).
+
+Future Releases
+===============
+* Not passing back 3-D arrays to callbacks.  Need to loop on passing 2-D arrays.
+* Add support for ReadStatus PV to force reading status like temperature
