@@ -2,6 +2,8 @@ $(P)$(R)NumAcquisitions
 $(P)$(R)RoperShutterMode
 $(P)$(R)AutoDataType
 $(P)$(R)Temperature
+$(P)$(R)UseBgd
+$(P)$(R)BgdFileName
 $(P)$(R)Comment1
 $(P)$(R)Comment2
 $(P)$(R)Comment3

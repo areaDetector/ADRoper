@@ -243,4 +243,48 @@ record(waveform, "$(P)$(R)Comment5_RBV")
     field(SCAN, "I/O Intr")
 }
 
+# Temperature status
+record(bi,      "$(P)$(R)TempStatus_RBV")
+{
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))ROPER_TEMP_STATUS")
+    field(ZNAM, "Not Locked")
+    field(ONAM, "Locked")
+    field(SCAN, "I/O Intr")
+}
 
+# Background image file name
+record(waveform,"$(P)$(R)BgdFileName")
+{
+    field(DTYP, "asynOctetWrite")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))ROPER_DARKNAME")
+    field(FTVL, "CHAR")
+    field(NELM, "128")
+}
+
+record(waveform,"$(P)$(R)BgdFileName_RBV")
+{
+    field(DTYP, "asynOctetRead")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))ROPER_DARKNAME")
+    field(FTVL, "CHAR")
+    field(NELM, "128")
+    field(SCAN, "I/O Intr")
+}
+
+record(bo, "$(P)$(R)UseBgd")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))ROPER_BBACKSUBTRACT")
+   field(ZNAM, "No")
+   field(ONAM, "Yes")
+}
+
+record(bi, "$(P)$(R)UseBgd_RBV")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))ROPER_BBACKSUBTRACT")
+   field(ZNAM, "No")
+   field(ONAM, "Yes")
+   field(SCAN, "I/O Intr")
+}
