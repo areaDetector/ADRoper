@@ -1,14 +1,14 @@
 
 file {
-	name="/home/epics/devel/areaDetector/ADApp/op/adl/Roper.adl"
-	version=030102
+	name="/work/sls/config/medm/Roper.adl"
+	version=030105
 }
 display {
 	object {
 		x=175
 		y=80
 		width=700
-		height=820
+		height=850
 	}
 	clr=14
 	bclr=4
@@ -1212,7 +1212,7 @@ rectangle {
 		x=5
 		y=340
 		width=335
-		height=410
+		height=500
 	}
 	"basic attribute" {
 		clr=14
@@ -2021,4 +2021,91 @@ composite {
 	}
 	"composite name"=""
 	"composite file"="ADAttrFile.adl"
+}
+"text update" {
+	object {
+		x=114
+		y=787
+		width=200
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)BgdFileName_RBV"
+		clr=54
+		bclr=4
+	}
+	format="string"
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=16
+		y=811
+		width=300
+		height=20
+	}
+	control {
+		chan="$(P)$(R)BgdFileName"
+		clr=14
+		bclr=51
+	}
+	format="string"
+	limits {
+	}
+}
+menu {
+	object {
+		x=140
+		y=757
+		width=80
+		height=20
+	}
+	control {
+		chan="$(P)$(R)UseBgd"
+		clr=14
+		bclr=51
+	}
+}
+"text update" {
+	object {
+		x=235
+		y=759
+		width=79
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)UseBgd_RBV"
+		clr=54
+		bclr=4
+	}
+	format="string"
+	limits {
+	}
+}
+text {
+	object {
+		x=21
+		y=757
+		width=110
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Background"
+	align="horiz. right"
+}
+text {
+	object {
+		x=31
+		y=785
+		width=60
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="File"
+	align="horiz. right"
 }
