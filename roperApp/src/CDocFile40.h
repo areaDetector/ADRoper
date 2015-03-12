@@ -1,6 +1,6 @@
 // Machine generated IDispatch wrapper class(es) created with Add Class from Typelib Wizard
 
-#import "C:\\Program Files\\PI Acton\\WinView\\Winview.exe" no_namespace
+#import "WINX32Lib.tlb" no_namespace
 // CDocFile40 wrapper class
 
 class CDocFile40 : public COleDispatchDriver

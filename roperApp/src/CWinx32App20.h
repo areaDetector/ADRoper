@@ -9,7 +9,7 @@
 #undef max
 #endif
 
-#import "C:\\Program Files\\PI Acton\\WinView\\Winview.exe" no_namespace
+#import "WINX32Lib.tlb" no_namespace
 // CWinx32App20 wrapper class
 
 class CWinx32App20 : public COleDispatchDriver
