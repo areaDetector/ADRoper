@@ -2,6 +2,9 @@
 # Mark Rivers
 # December 2, 2008
 
+include "ADBase.template"
+include "NDFile.template"
+
 # These are the records from ADBase.template that we modify some fields for
 
 # We replace the choice fields for ImageMode from ADBase.template
