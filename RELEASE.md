@@ -23,6 +23,11 @@ files respectively, in the configure/ directory of the appropriate release of th
 Release Notes
 =============
 
+R2-1
+----
+* Changes for compatibility with ADCore R2-2
+
+
 R2-0
 ----
 * Moved the repository to [Github](https://github.com/areaDetector/ADRoper).
