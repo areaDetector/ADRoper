@@ -1,3 +1,5 @@
+file "ADBase_settings.req", "P=$(P), R=$(R)
+file "NDFile_settings.req", "P=$(P), R=$(R)
 $(P)$(R)NumAcquisitions
 $(P)$(R)RoperShutterMode
 $(P)$(R)AutoDataType
@@ -7,5 +9,4 @@ $(P)$(R)Comment2
 $(P)$(R)Comment3
 $(P)$(R)Comment4
 $(P)$(R)Comment5
-file "ADBase_settings.req", "P=$(P), R=$(R)
-file "NDFile_settings.req", "P=$(P), R=$(R)
+
