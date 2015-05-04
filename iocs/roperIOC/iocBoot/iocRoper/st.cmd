@@ -29,7 +29,7 @@ dbLoadRecords("$(ADROPER)/db/roper.template",   "P=$(PREFIX),R=cam1:,PORT=$(PORT
 
 # Create a standard arrays plugin, set it to get data from the Roper driver.
 NDStdArraysConfigure("Image1", 5, 0, "$(PORT)", 0, 0)
-dbLoadRecords("$(ADCORE)/db/NDStdArrays.template", "P=$(PREFIX),R=image1:,PORT=Image1,ADDR=0,TIMEOUT=1,NDARRAY_PORT=$(PORT)TYPE=Int16,FTVL=SHORT,NELEMENTS=1500000")
+dbLoadRecords("$(ADCORE)/db/NDStdArrays.template", "P=$(PREFIX),R=image1:,PORT=Image1,ADDR=0,TIMEOUT=1,NDARRAY_PORT=$(PORT),TYPE=Int16,FTVL=SHORT,NELEMENTS=1500000")
 
 # Load all other plugins using commonPlugins.cmd
 < $(ADCORE)/iocBoot/commonPlugins.cmd
