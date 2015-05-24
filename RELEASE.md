@@ -23,6 +23,11 @@ files respectively, in the configure/ directory of the appropriate release of th
 Release Notes
 =============
 
+R2-1-1 (XXX-May-2015)
+----
+* Fixed typo in st.cmd
+
+
 R2-1 (18-April-2015)
 ----
 * Changes for compatibility with ADCore R2-2
