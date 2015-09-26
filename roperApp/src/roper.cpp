@@ -94,6 +94,9 @@ typedef enum {
 #define RoperNumAcquisitionsString        "ROPER_NACQUISITIONS"
 #define RoperNumAcquisitionsCounterString "ROPER_NACQUISITIONS_COUNTER"
 #define RoperAutoDataTypeString           "AUTO_DATA_TYPE"
+#define RoperTemperatureStatusString      "ROPER_TEMP_STATUS"
+#define RoperUseBackgroundString          "ROPER_BBACKSUBTRACT"
+#define RoperBackgroundFileNameString     "ROPER_DARKNAME"
 #define RoperComment1String               "COMMENT1"
 #define RoperComment2String               "COMMENT2"
 #define RoperComment3String               "COMMENT3"
@@ -116,6 +119,7 @@ public:
     /* These are the methods that we override from ADDriver */
     virtual asynStatus writeInt32(asynUser *pasynUser, epicsInt32 value);
     virtual asynStatus writeFloat64(asynUser *pasynUser, epicsFloat64 value);
+    virtual asynStatus writeOctet(asynUser *pasynUser, const char *value, size_t maxChars, size_t *nActual);
     virtual void setShutter(int open);
     virtual asynStatus drvUserCreate(asynUser *pasynUser, const char *drvInfo, 
                                      const char **pptypeName, size_t *psize);
@@ -128,6 +132,9 @@ protected:
     int RoperNumAcquisitions;
     int RoperNumAcquisitionsCounter;
     int RoperAutoDataType;
+    int RoperTemperatureStatus;
+    int RoperUseBackground;
+    int RoperBackgroundFileName;
     int RoperComment1;
     int RoperComment2;
     int RoperComment3;
@@ -391,10 +398,14 @@ asynStatus roper::getStatus()
         varResult = pExpSetup->GetParam(EXP_GAIN, &result);
         setDoubleParam(ADGain, (double)varResult.lVal);
         //varResult = pExpSetup->GetParam(EXP_FOCUS_NFRAME, &result);
+        varResult = pExpSetup->GetParam(EXP_BBACKSUBTRACT, &result);
+        setIntegerParam(RoperUseBackground, varResult.lVal);
         varResult = pExpSetup->GetParam(EXP_EXPOSURE, &result);
         setDoubleParam(ADAcquireTime, varResult.dblVal);
         varResult = pExpSetup->GetParam(EXP_ACTUAL_TEMP, &result);
         setDoubleParam(ADTemperature, varResult.dblVal);
+        varResult = pExpSetup->GetParam(EXP_TEMP_STATUS, &result);
+        setIntegerParam(RoperTemperatureStatus, varResult.lVal);
         pROIDispatch = pExpSetup->GetROI(1);
         pROIRect->AttachDispatch(pROIDispatch);
         pROIRect->Get(&top, &left, &bottom, &right, &binX, &binY);
@@ -406,6 +417,10 @@ asynStatus roper::getStatus()
         setIntegerParam(ADMinY, minY);
         setIntegerParam(ADSizeX, sizeX);
         setIntegerParam(ADSizeY, sizeY);
+        varResult = this->pExpSetup->GetParam(EXP_DARKNAME, &result);
+        char * backgroundFile = _com_util::ConvertBSTRToString(varResult.bstrVal);
+        setStringParam(RoperBackgroundFileName, backgroundFile);
+        delete[] backgroundFile;
     }
     catch(CException *pEx) {
         pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
@@ -565,7 +580,7 @@ void roper::roperTask()
     int acquire, autoSave;
     NDArray *pImage;
     double acquireTime, acquirePeriod, delay;
-    epicsTimeStamp startTime, endTime;
+    epicsTimeStamp startTime, currentTime, endTime;
     double elapsedTime;
     const char *functionName = "roperTask";
     VARIANT varArg;
@@ -654,6 +669,17 @@ void roper::roperTask()
                     /* Close the shutter */
                     setShutter(ADShutterClosed);
                     break;
+                }
+                /* Check if exposure is finished. This works only if acquisition has
+                 * one exposure per image and one image per acquisition.
+                 * Ideally EXP_RUNNING could differentiate between exposure and readout.
+                 */
+                epicsTimeGetCurrent(&currentTime);
+                if (epicsTimeDiffInSeconds(&currentTime, &startTime)>=acquireTime) {
+                    /* Close the shutter */
+                    setShutter(ADShutterClosed);
+                    /* Detector status is readout */
+                    setIntegerParam(ADStatus, ADStatusReadout);
                 }
             }
         }
@@ -816,6 +842,8 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
                 varArg.lVal = roperDataType;
                 this->pExpSetup->SetParam(EXP_DATATYPE, &varArg);
             }
+        } else if (function == RoperUseBackground) {
+            this->pExpSetup->SetParam(EXP_BBACKSUBTRACT, &varArg);
         } else {
             needReadStatus = 0;
             /* If this parameter belongs to a base class call its method */
@@ -825,7 +853,7 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
     catch(CException *pEx) {
         pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
         asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-            "%s:%s: exception = %s\n", 
+            "%s:%s: exception = %s\n",
             driverName, functionName, this->errorMessage);
         pEx->Delete();
         status = asynError;
@@ -837,13 +865,13 @@ asynStatus roper::writeInt32(asynUser *pasynUser, epicsInt32 value)
     /* Do callbacks so higher layers see any changes */
     callParamCallbacks();
     
-    if (status) 
-        asynPrint(pasynUser, ASYN_TRACE_ERROR, 
-              "%s:%s: error, status=%d function=%d, value=%d\n", 
+    if (status)
+        asynPrint(pasynUser, ASYN_TRACE_ERROR,
+              "%s:%s: error, status=%d function=%d, value=%d\n",
               driverName, functionName, status, function, value);
-    else        
-        asynPrint(pasynUser, ASYN_TRACEIO_DRIVER, 
-              "%s:%s: function=%d, value=%d\n", 
+    else
+        asynPrint(pasynUser, ASYN_TRACEIO_DRIVER,
+              "%s:%s: function=%d, value=%d\n",
               driverName, functionName, function, value);
     return status;
 }
@@ -910,6 +938,63 @@ asynStatus roper::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
               driverName, functionName, function, value);
     return status;
 }
+
+/* Called when asyn clients call pasynOctet->write().
+ * \param [in]  pasynUser  pasynUser structure that encodes the reason and address.
+ * \param [in]  value  Address of the string to write.
+ * \param [in]  nChars  Number of characters to write.
+ * \param [out]  nActual  Number of characters actually written.
+*/
+asynStatus roper::writeOctet(asynUser *pasynUser, const char *value, size_t nChars, size_t *nActual)
+{
+    int function = pasynUser->reason;
+    asynStatus status = asynSuccess;
+    BSTR bstr;
+    VARIANT varArg;
+    const char* functionName="writeOctet";
+
+    /* Initialize the variant and set data type */
+    VariantInit(&varArg);
+    varArg.vt = VT_BSTR;
+
+    /* Set the parameter and readback in the parameter library.  This may be overwritten when we read back the
+     * status at the end, but that's OK */
+    status = setStringParam(function, value);
+
+    try {
+        if (function == RoperBackgroundFileName) {
+            bstr = stringToBSTR((char*)value);
+            varArg.bstrVal = bstr;
+            this->pExpSetup->SetParam(EXP_DARKNAME, &varArg);
+            SysFreeString(bstr);
+        } else {
+            /* If this parameter belongs to a base class call its method */
+            if (function < FIRST_ROPER_PARAM) status = ADDriver::writeOctet(pasynUser, value, nChars, nActual);
+        }
+    }
+    catch(CException *pEx) {
+        pEx->GetErrorMessage(this->errorMessage, sizeof(this->errorMessage));
+        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+            "%s:%s: exception = %s\n",
+            driverName, functionName, this->errorMessage);
+        pEx->Delete();
+    }
+
+    /* Do callbacks so higher layers see any changes */
+    callParamCallbacks();
+
+    if (status)
+        asynPrint(pasynUser, ASYN_TRACE_ERROR,
+              "%s:%s, status=%d function=%d, value=%f\n",
+              driverName, functionName, status, function, value);
+    else
+        asynPrint(pasynUser, ASYN_TRACEIO_DRIVER,
+              "%s:%s: function=%d, value=%f\n",
+              driverName, functionName, function, value);
+    *nActual = nChars;
+    return status;
+}
+
 
 
 /** Sets pasynUser->reason to one of the enum values for the parameters defined for
@@ -1011,6 +1096,9 @@ roper::roper(const char *portName,
     createParam(RoperNumAcquisitionsString,        asynParamInt32,   &RoperNumAcquisitions);
     createParam(RoperNumAcquisitionsCounterString, asynParamInt32,   &RoperNumAcquisitionsCounter);
     createParam(RoperAutoDataTypeString,           asynParamInt32,   &RoperAutoDataType);
+    createParam(RoperTemperatureStatusString,      asynParamInt32,   &RoperTemperatureStatus);
+    createParam(RoperUseBackgroundString,          asynParamInt32,   &RoperUseBackground);
+    createParam(RoperBackgroundFileNameString,     asynParamOctet,   &RoperBackgroundFileName);
     createParam(RoperComment1String,               asynParamOctet,   &RoperComment1);
     createParam(RoperComment2String,               asynParamOctet,   &RoperComment2);
     createParam(RoperComment3String,               asynParamOctet,   &RoperComment3);

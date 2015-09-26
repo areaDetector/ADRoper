@@ -1,6 +1,6 @@
 // Machine generated IDispatch wrapper class(es) created with Add Class from Typelib Wizard
 
-#import "C:\\Program Files\\PI Acton\\WinView\\Winview.exe" no_namespace
+#import "WINX32Lib.tlb" no_namespace
 // CROIRect0 wrapper class
 
 class CROIRect0 : public COleDispatchDriver
