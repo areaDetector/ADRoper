@@ -23,9 +23,10 @@ files respectively, in the configure/ directory of the appropriate release of th
 Release Notes
 =============
 
-R2-1-1 (XXX-May-2015)
+R2-2 (21-February-2017)
 ----
-* Fixed typo in st.cmd
+* Fixed typo in st.cmd.
+* Changed layout of medm screen for new ADSetup.adl in ADCore R2-6.
 
 
 R2-1 (18-April-2015)
