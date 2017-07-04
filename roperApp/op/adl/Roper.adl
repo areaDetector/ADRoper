@@ -1,11 +1,11 @@
 
 file {
-	name="/home/epics/devel/areaDetector-2-6/ADRoper/roperApp/op/adl/Roper.adl"
+	name="/home/epics/devel/areaDetector-3-1/ADRoper/roperApp/op/adl/Roper.adl"
 	version=030109
 }
 display {
 	object {
-		x=175
+		x=227
 		y=80
 		width=715
 		height=880
@@ -441,7 +441,7 @@ composite {
 composite {
 	object {
 		x=360
-		y=750
+		y=800
 		width=350
 		height=60
 	}
@@ -450,7 +450,7 @@ composite {
 		composite {
 			object {
 				x=487
-				y=752
+				y=802
 				width=107
 				height=21
 			}
@@ -459,7 +459,7 @@ composite {
 				composite {
 					object {
 						x=487
-						y=752
+						y=802
 						width=107
 						height=21
 					}
@@ -468,7 +468,7 @@ composite {
 						rectangle {
 							object {
 								x=487
-								y=752
+								y=802
 								width=107
 								height=21
 							}
@@ -481,7 +481,7 @@ composite {
 				text {
 					object {
 						x=520
-						y=752
+						y=802
 						width=40
 						height=20
 					}
@@ -496,7 +496,7 @@ composite {
 		rectangle {
 			object {
 				x=360
-				y=750
+				y=800
 				width=350
 				height=60
 			}
@@ -508,7 +508,7 @@ composite {
 		text {
 			object {
 				x=373
-				y=779
+				y=829
 				width=150
 				height=20
 			}
@@ -521,7 +521,7 @@ composite {
 		"related display" {
 			object {
 				x=530
-				y=779
+				y=829
 				width=70
 				height=20
 			}
@@ -539,7 +539,7 @@ composite {
 		x=360
 		y=685
 		width=350
-		height=60
+		height=110
 	}
 	"composite name"=""
 	"composite file"="ADAttrFile.adl"
