@@ -22,6 +22,10 @@ files respectively, in the configure/ directory of the appropriate release of th
 
 Release Notes
 =============
+R2-3 (05-July-2017)
+----
+* Changed layout of medm screen for ADCore R3-0.
+
 
 R2-2 (21-February-2017)
 ----
