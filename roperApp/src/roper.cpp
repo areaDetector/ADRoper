@@ -686,13 +686,9 @@ void roper::roperTask()
                 /* Get any attributes that have been defined for this driver */        
                 this->getAttributes(pImage->pAttributeList);
                 /* Call the NDArray callback */
-                /* Must release the lock here, or we can get into a deadlock, because we can
-                 * block on the plugin lock, and the plugin can be calling us */
-                this->unlock();
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW, 
                      "%s:%s: calling imageData callback\n", driverName, functionName);
                 doCallbacksGenericPointer(pImage, NDArrayData, 0);
-                this->lock();
                 pImage->release();
             }
         }
