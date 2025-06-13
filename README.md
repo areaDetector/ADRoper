@@ -12,6 +12,8 @@ and
 The driver controls the WinView or WinSpec programs that Princeton provides using the Microsoft COM interface. 
 It performs many of the operations that can be performed using the WinView/WinSpec GUI.
 
+**This repository is no longer active and was archived on June 13, 2025.**
+
 Additional information:
 * [Documentation](https://cars.uchicago.edu/software/epics/RoperDoc.html).
 * [Release notes and links to source and binary releases](RELEASE.md).
